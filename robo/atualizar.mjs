@@ -157,8 +157,10 @@ async function cripto(mk) {
   log('Cripto: ' + Object.keys(out).length + ' moedas, USDT/BRL ' + mk.usdtbrl);
 }
 async function dolar(mk) {
-  const j = await get('https://economia.awesomeapi.com.br/json/last/USD-BRL');
-  const v = +(j.USDBRL && j.USDBRL.bid); if (v > 0) { mk.dolar = v; mk.atualizado.dolar = agora.toISOString(); }
+  let v = 0;
+  try { const j = await get('https://economia.awesomeapi.com.br/json/last/USD-BRL', {}, 1); v = +(j.USDBRL && j.USDBRL.bid); }
+  catch (e) { const j = await get('https://api.bcb.gov.br/dados/serie/bcdata.sgs.1/dados/ultimos/1?formato=json'); v = brNum(j[0].valor); }
+  if (v > 0) { mk.dolar = v; mk.atualizado.dolar = agora.toISOString(); }
   log('Dólar: ' + mk.dolar);
 }
 
@@ -177,31 +179,58 @@ async function proventosFII(mk) {
     if (d.length < 200 || docs.length >= (j.recordsFiltered || j.recordsTotal || 0) || s > 20000) break;
     s += 200;
   }
-  log('FundosNET: ' + docs.length + ' avisos de rendimento nos últimos ' + DIAS + ' dias');
+  const lidos = new Set(mk.fnetLidos || []);
+  const fazer = docs.filter(d => d.status !== 'IC' && d.situacaoDocumento !== 'I' && !lidos.has(d.id));
+  log('FundosNET: ' + docs.length + ' avisos de rendimento nos últimos ' + DIAS + ' dias, ' + fazer.length + ' novos');
+  const fiis = new Set(Object.keys(mk.precos || {}));
   const novos = [];
   let falhas = 0, primeiro = true;
-  await emLotes(docs.filter(d => d.status !== 'IC' && d.situacaoDocumento !== 'I'), 6, async d => {
+  await emLotes(fazer, 10, async d => {
     try {
       let raw = await get('https://fnet.bmfbovespa.com.br/fnet/publico/downloadDocumento?id=' + d.id, { texto: true });
       raw = raw.trim(); if (raw.startsWith('"')) raw = JSON.parse(raw);
       let xml = raw; if (!raw.includes('<')) xml = Buffer.from(raw, 'base64').toString('utf8');
       if (primeiro) { primeiro = false; sonda('FundosNET documento', xml); }
-      const ticker = (tag(xml, 'CodNegociacao') || tag(xml, 'CodigoNegociacao') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const provs = blocos(xml, 'Provento'); if (!provs.length) provs.push(xml);
+      for (const pv of provs) {
+      const ticker = tickerFII(tag(pv, 'CodNegociacao') || tag(xml, 'CodNegociacao'), tag(pv, 'CodISIN') || tag(xml, 'CodISIN'), fiis);
+      if (!ticker) continue;
       for (const [bloco, tipo] of [['Rendimento', 'Rendimento'], ['Amortizacao', 'Amortização']]) {
-        for (const b of blocos(xml, bloco)) {
+        for (const b of blocos(pv, bloco)) {
           const v = brNum(tag(b, 'ValorProventoCota') || tag(b, 'ValorProvento') || '0');
           const com = brData(tag(b, 'DataBase')) || (tag(b, 'DataBase') || '').slice(0, 10);
           const pag = brData(tag(b, 'DataPagamento')) || (tag(b, 'DataPagamento') || '').slice(0, 10);
-          const t = (tag(b, 'CodNegociacao') || ticker).toUpperCase().replace(/[^A-Z0-9]/g, '');
+          const t = ticker;
           if (t && v > 0 && /^\d{4}-\d{2}-\d{2}$/.test(pag)) novos.push({ t, tipo, com: /^\d{4}-\d{2}-\d{2}$/.test(com) ? com : null, pag, v: +v.toFixed(8), doc: d.id });
         }
       }
+      }
+      lidos.add(d.id);
     } catch (e) { falhas++; }
   });
+  mk.fnetLidos = [...lidos].slice(-8000);
   log('FundosNET: ' + novos.length + ' proventos lidos' + (falhas ? ', ' + falhas + ' documentos com erro' : ''));
-  if (docs.length && !novos.length) throw new Error('nenhum provento lido dos documentos');
+  if (fazer.length > 5 && !novos.length) throw new Error('nenhum provento lido dos documentos');
   juntar(mk, novos, 'fii');
   mk.atualizado.proventos = agora.toISOString();
+}
+
+/* Código de negociação do FII: o do documento, ou montado pelo ISIN (BRMXRFCTF008 → MXRF11) */
+function tickerFII(cod, isin, existentes) {
+  cod = (cod || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (/^[A-Z]{4}1[1-3]B?$/.test(cod)) return cod;
+  isin = (isin || '').toUpperCase();
+  if (/^BR[A-Z]{4}CTF/.test(isin)) { const t = isin.slice(2, 6) + '11'; if (!existentes.size || existentes.has(t)) return t; }
+  return null;
+}
+/* Ação pelo ISIN: BRABCBACNPR4 → ABCB4 (OR=3, PR=4, PA=5, PB=6, PC=7, PD=8; units CDA=11) */
+function tickerAcao(isin) {
+  isin = (isin || '').toUpperCase(); if (!/^BR[A-Z0-9]{4}/.test(isin)) return null;
+  const emp = isin.slice(2, 6), tipo = isin.slice(6, 9), cl = isin.slice(9, 11);
+  if (tipo === 'CDA') return emp + '11';
+  if (tipo !== 'ACN') return null;
+  const n = { OR: 3, PR: 4, PA: 5, PB: 6, PC: 7, PD: 8 }[cl];
+  return n ? emp + n : null;
 }
 
 /* ---------- Proventos de ações: B3 ---------- */
@@ -220,8 +249,8 @@ async function proventosAcoes(mk, ativos) {
           const pag = brData(p.paymentDate), com = brData(p.lastDatePrior), v = brNum(p.rate);
           if (!pag || !(v > 0)) continue;
           const isin = p.isinCode || p.assetIssued || '';
-          const t = (codigos.find(x => x[0] === isin) || [])[1] || (isin.slice(6, 8) === 'PN' ? emp + '4' : isin.slice(6, 8) === 'ON' ? emp + '3' : '');
-          if (!t) continue;
+          const t = (codigos.find(x => x[0] === isin) || [])[1] || tickerAcao(isin);
+          if (!t || (Object.keys(mk.precos).length && !mk.precos[t])) continue;
           const lbl = (p.label || '').toUpperCase();
           const tipo = lbl.includes('JRS') || lbl.includes('JUROS') ? 'JCP' : lbl.includes('REND') ? 'Rendimento' : 'Dividendo';
           novos.push({ t, tipo, com, pag, v: +v.toFixed(8) });

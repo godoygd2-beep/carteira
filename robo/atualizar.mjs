@@ -250,7 +250,8 @@ async function proventosFIIb3(mk, ativos) {
       for (const p of lista) {
         const pag = brData(p.paymentDate), com = brData(p.lastDatePrior), v = brNum(p.rate);
         if (!pag || !(v > 0)) continue;
-        const t = tickerFII('', p.isinCode || p.assetIssued, fiis) || (fiis.has(base + '11') ? base + '11' : null);
+        // só a cota principal (ISIN ...CTF...); recibos de subscrição e outras classes ficam de fora
+        const t = tickerFII('', p.isinCode || p.assetIssued, fiis);
         if (!t) continue;
         const lbl = (p.label || '').toUpperCase();
         novos.push({ t, tipo: lbl.includes('AMORT') ? 'Amortização' : 'Rendimento', com, pag, v: +v.toFixed(8) });

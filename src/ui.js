@@ -54,6 +54,7 @@ export function iniciarUI(el, st, opts) {
   root.querySelector('#fab').addEventListener('click', () => formulario(tab === 'proventos' ? { cls: 'fii', tipo: 'provento' } : null));
   root.querySelector('#view').addEventListener('click', e => {
     if (e.target.closest('#login')) { entrar(); return; }
+    const ed = e.target.closest('[data-edit]'); if (ed) { editar(ed.dataset.edit); return; }
     const r = e.target.closest('[data-ativo]'); if (r) detalhe(r.dataset.cls, r.dataset.ativo);
   });
   window.addEventListener('popstate', () => { if (root.querySelector('#scrim')) closeSheet(true); });
@@ -220,7 +221,7 @@ function vProventos() {
       const k = monthKey(o.data);
       if (k !== cur) { if (n >= 60) break; if (cur) h += '</div></section>'; cur = k; h += '<section class="sec"><div class="sec-h"><h2>' + monthName(k) + '</h2><div class="meta num">' + brl(tot[k]) + '</div></div><div class="list">'; }
       n++;
-      h += '<button class="row" data-ativo="' + esc(o.ativo) + '" data-cls="' + o.cls + '">' + tick(o.cls, o.ativo) +
+      h += '<button class="row" data-edit="' + o.id + '">' + tick(o.cls, o.ativo) +
         '<span class="main"><span class="t">' + esc(o.ativo) + '</span><span class="s">' + esc(o.provTipo || 'Provento') + ' · ' + fmtDate(o.data) + (o.auto ? ' · automático' : '') + '</span></span>' +
         '<span class="r num v pos">' + brl(o.valor) + '</span></button>';
     }
@@ -246,7 +247,8 @@ function vLancamentos() {
   const ano = S.hoje.slice(0, 4), taxAno = ops.filter(o => o.data.startsWith(ano)).reduce((s, o) => s + opTaxBRL(o), 0);
   const taxMes = {}; ops.forEach(o => { const k = monthKey(o.data); taxMes[k] = (taxMes[k] || 0) + opTaxBRL(o); });
   let h = '<section class="card"><span class="label">Taxas pagas em ' + ano + '</span><div class="big num" style="font-size:30px">' + brl(taxAno) + '</div>' +
-    '<div class="delta"><small>Corretagem, B3 e corretora de cripto, como você registrou em cada compra e venda.</small></div></section>';
+    '<div class="delta"><small>Corretagem, B3 e corretora de cripto, como você registrou em cada compra e venda.</small></div></section>' +
+    '<p class="note" style="margin-top:12px">Toque num lançamento para editar ou excluir.</p>';
   let cur = '';
   ops.forEach(o => {
     const k = monthKey(o.data);
@@ -254,7 +256,7 @@ function vLancamentos() {
       if (cur) h += '</div></section>'; cur = k;
       h += '<section class="sec"><div class="sec-h"><h2>' + monthName(k) + '</h2><div class="meta num">' + (taxMes[k] > 0.004 ? 'taxas ' + brl(taxMes[k]) : 'sem taxas') + '</div></div><div class="list">';
     }
-    h += '<button class="row" data-ativo="' + esc(o.ativo) + '" data-cls="' + o.cls + '">' + tick(o.cls, o.ativo) +
+    h += '<button class="row" data-edit="' + o.id + '">' + tick(o.cls, o.ativo) +
       '<span class="main"><span class="t">' + esc(o.ativo) + ' <span class="chip ' + o.tipo + '">' + TIPO_NOME[o.tipo] + '</span></span><span class="s num">' + fmtDate(o.data) + ' · ' + opLine(o) + '</span></span>' +
       '<span class="r num v">' + brl(opTotalBRL(o)) + '</span></button>';
   });
@@ -344,22 +346,26 @@ function detalhe(c, a) {
     h += '<div class="sec-h" style="margin-top:16px"><h2>Lançamentos</h2><div class="meta">' + (todos.length > 12 ? 'últimos 12 de ' + todos.length : todos.length) + '</div></div><div class="list ops">';
     ops.forEach(o => {
       const tot = c === 'cripto' && a !== 'USDT' && o.tipo !== 'provento' ? usd(opTotalOrig(o)) : brl(opTotalBRL(o));
-      h += '<div class="row"><span class="main"><span class="t"><span class="chip ' + o.tipo + '">' + TIPO_NOME[o.tipo] + '</span> ' + fmtDate(o.data) + '</span><span class="s num">' + opLine(o) + '</span></span>' +
-        '<span class="r"><span class="v num">' + tot + '</span><button class="del" data-del="' + o.id + '">Excluir</button></span></div>';
+      h += '<button class="row" data-edit="' + o.id + '"><span class="main"><span class="t"><span class="chip ' + o.tipo + '">' + TIPO_NOME[o.tipo] + '</span> ' + fmtDate(o.data) + '</span><span class="s num">' + opLine(o) + '</span></span>' +
+        '<span class="r"><span class="v num">' + tot + '</span><span class="s">editar ›</span></span></button>';
     });
     h += '</div><div style="margin-top:14px"><button class="primary" id="addHere">Lançar em ' + esc(a) + '</button></div>';
     openSheet(a, h, b => {
-      b.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
-        if (!btn.classList.contains('armed')) { btn.classList.add('armed'); btn.textContent = 'Confirmar'; return; }
-        const o = S.ops.find(x => x.id === btn.dataset.del);
-        const msg = o && o.link ? 'Excluído e desfeito no ' + (o.fonte === 'usdt' ? 'USDT' : 'CDB') : 'Lançamento excluído';
-        btn.disabled = true;
-        try { await excluir(btn.dataset.del); toast(msg); } catch (e) { toast('Não deu para excluir. Tente de novo.'); btn.disabled = false; }
-      }));
+      b.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => editar(btn.dataset.edit)));
       b.querySelector('#addHere').addEventListener('click', () => formulario({ cls: c, ativo: a }));
     }, desenhar);
   };
   desenhar();
+}
+
+/* ---------- Editar um lançamento ---------- */
+const txt = v => v == null || v === '' ? '' : String(+(+v).toFixed(8)).replace('.', ',');
+function editar(id) {
+  let o = S.ops.find(x => x.id === id); if (!o) return;
+  if (o.de) { const m = S.ops.find(x => x.id === o.de); if (m) o = m; } // resgate/aporte automático: edita a compra ou venda que o criou
+  formulario({ cls: o.cls, tipo: o.tipo, ativo: o.ativo, data: o.data, qtd: txt(o.qtd), preco: txt(o.preco), taxas: o.taxas ? txt(o.taxas) : '', valor: txt(o.valor),
+    pct: txt(o.pct || 100), provTipo: o.provTipo || 'Rendimento', dolar: txt(o.dolar || dolarCripto()), usarLink: !!o.link,
+    editId: o.id, linkId: o.link || null, ts: o.ts, auto: !!o.auto });
 }
 
 /* ---------- Novo lançamento ---------- */
@@ -368,9 +374,9 @@ function formulario(pre) {
   F = Object.assign({ cls: 'acao', tipo: null, ativo: '', data: S.hoje, qtd: '', preco: '', taxas: '', valor: '', pct: '100', provTipo: 'Rendimento', usarLink: true, dolar: nf2.format(dolarCripto()) }, pre || {});
   if (F.cls === 'cdb' && !F.ativo) F.ativo = cdbPadrao() || 'CDB Inter';
   if (F.ativo === 'USDT' && !F.preco) F.preco = '1,00';
-  if (F.cls === 'acao' && F.tipo === 'provento') F.provTipo = 'Dividendo';
+  if (F.cls === 'acao' && F.tipo === 'provento' && !F.editId) F.provTipo = 'Dividendo';
   if (!F.tipo) F.tipo = TIPOS[F.cls][0];
-  openSheet('Novo lançamento', '<div id="formBox"></div>', () => drawForm());
+  openSheet(F.editId ? 'Editar lançamento' : 'Novo lançamento', '<div id="formBox"></div>', () => drawForm());
 }
 function listaDe(c) {
   if (c === 'cripto') return CRIPTO;
@@ -399,7 +405,8 @@ function drawForm() {
       '<p class="note" style="margin:-6px 2px 0">Os proventos anunciados entram sozinhos. Use isto só para algo que não apareceu.</p>';
   } else if (c === 'cdb') {
     h += '<div class="two"><div class="field"><label for="f-valor">' + (t === 'aporte' ? 'Valor (R$)' : 'Valor líquido (R$)') + '</label><input id="f-valor" inputmode="decimal" placeholder="0,00" value="' + esc(F.valor) + '"></div>' +
-      (t === 'aporte' ? '<div class="field"><label for="f-pct">% do CDI</label><input id="f-pct" inputmode="decimal" value="' + esc(F.pct) + '"></div>' : '<div></div>') + '</div>';
+      (t === 'aporte' ? '<div class="field"><label for="f-pct">% do CDI</label><input id="f-pct" inputmode="decimal" value="' + esc(F.pct) + '"></div>' : '<div></div>') + '</div>' +
+      '<p class="note" style="margin:-6px 2px 0">' + (t === 'aporte' ? 'Coloque o valor que você aplicou, na data em que aplicou (não o saldo de hoje). O app calcula o rendimento e o imposto de cada aporte.' : 'Coloque o valor que caiu na sua conta.') + '</p>';
   } else if (c === 'cripto') {
     h += '<div class="two"><div class="field"><label for="f-qtd">Quantidade</label><input id="f-qtd" inputmode="decimal" placeholder="0,01" value="' + esc(F.qtd) + '"></div>' +
       '<div class="field"><label for="f-preco">Preço (US$)</label><input id="f-preco" inputmode="decimal" placeholder="0,00" value="' + esc(F.preco) + '"></div></div>' +
@@ -412,7 +419,8 @@ function drawForm() {
       '<div class="field"><label for="f-taxas">Taxas (R$)</label><input id="f-taxas" inputmode="decimal" placeholder="0,00 — da nota da corretora" value="' + esc(F.taxas) + '"></div>';
   }
   if (t === 'compra' || t === 'venda') h += '<label class="check" for="f-link" id="f-linkbox" hidden><input type="checkbox" id="f-link"' + (F.usarLink ? ' checked' : '') + '><span><b id="f-linkt"></b><small id="f-links"></small></span></label>';
-  h += '<div class="total num" id="f-total"></div><div class="err" id="f-err" role="alert" hidden></div><button class="primary" id="f-save">Salvar ' + TIPO_NOME[t].toLowerCase() + '</button></div>';
+  h += '<div class="total num" id="f-total"></div><div class="err" id="f-err" role="alert" hidden></div><button class="primary" id="f-save">' + (F.editId ? 'Salvar alterações' : 'Salvar ' + TIPO_NOME[t].toLowerCase()) + '</button>' +
+    (F.editId ? '<button class="ghost" id="f-del" type="button">Excluir lançamento</button>' : '') + '</div>';
   box.innerHTML = h;
   box.querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => { F.cls = b.dataset.c; F.tipo = TIPOS[F.cls][0]; F.ativo = F.cls === 'cdb' ? (cdbPadrao() || 'CDB Inter') : ''; drawForm(); }));
   box.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => { F.tipo = b.dataset.t; if (F.tipo === 'provento') F.provTipo = F.cls === 'fii' ? 'Rendimento' : 'Dividendo'; drawForm(); }));
@@ -420,6 +428,17 @@ function drawForm() {
   bind('f-ativo', 'ativo'); bind('f-data', 'data'); bind('f-qtd', 'qtd'); bind('f-preco', 'preco'); bind('f-taxas', 'taxas'); bind('f-valor', 'valor'); bind('f-pct', 'pct'); bind('f-dolar', 'dolar');
   const sel = box.querySelector('#f-prov'); if (sel) sel.addEventListener('change', () => { F.provTipo = sel.value; });
   const ck = box.querySelector('#f-link'); if (ck) ck.addEventListener('change', () => { F.usarLink = ck.checked; totalForm(); });
+  const del = box.querySelector('#f-del');
+  if (del) del.addEventListener('click', async () => {
+    if (!del.dataset.armed) {
+      const o = S.ops.find(x => x.id === F.editId);
+      del.dataset.armed = '1'; del.classList.add('danger');
+      del.textContent = o && o.link ? 'Toque de novo: exclui e desfaz no ' + (o.fonte === 'usdt' ? 'USDT' : 'CDB') : 'Toque de novo para excluir';
+      return;
+    }
+    del.disabled = true;
+    try { await excluir(F.editId); closeSheet(); toast('Lançamento excluído'); } catch (e) { del.disabled = false; erro('Não deu para excluir. Tente de novo.'); }
+  });
   // autocompletar: sugestões abaixo do campo, filtrando enquanto digita
   const ai = box.querySelector('#f-ativo'), sugEl = box.querySelector('#f-sug');
   const mostrar = () => {
@@ -465,11 +484,34 @@ function totalForm() {
 }
 function erro(m) { const e = root.querySelector('#f-err'); e.textContent = m; e.hidden = false; }
 async function salvar() {
+  // ao editar, as contas de saldo (CDB, USDT, quantidade para vender) ignoram a versão antiga deste lançamento
+  const todas = S.ops;
+  if (F.editId) S.ops = todas.filter(x => x.id !== F.editId && x.id !== F.linkId);
+  let r;
+  try { r = montar(); } finally { S.ops = todas; }
+  if (typeof r === 'string') return erro(r);
+  const { o, ligado } = r, t = o.tipo;
+  const btn = root.querySelector('#f-save'); btn.disabled = true;
+  try {
+    const p = store.salvar(ligado ? [o, ligado] : [o]);
+    if (F.linkId && (!ligado || ligado.id !== F.linkId)) store.excluir([F.linkId]);
+    // offline o Firestore guarda e envia depois: não espera a resposta para fechar
+    await Promise.race([p, new Promise(res => setTimeout(res, 1500))]);
+    p.catch(() => toast('Não deu para salvar. Confira a internet.'));
+  } catch (e) { btn.disabled = false; return erro('Não deu para salvar. Tente de novo.'); }
+  const editando = !!F.editId;
+  closeSheet();
+  toast(editando ? 'Alterações salvas' : !ligado ? TIPO_NOME[t] + ' registrada' : t === 'compra' ? 'Compra registrada e paga com ' + (o.fonte === 'usdt' ? 'USDT' : 'o CDB') : 'Venda registrada e valor guardado ' + (o.fonte === 'usdt' ? 'em USDT' : 'no CDB'));
+}
+/* Confere o formulário e monta o lançamento (e o automático do CDB/USDT). Devolve um texto de erro se faltar algo. */
+function montar() {
+  const erro = m => m;
   const c = F.cls, t = F.tipo;
   let ativo = String(F.ativo || '').trim().replace(/\s+/g, ' '); if (c === 'acao' || c === 'fii' || c === 'cripto') ativo = ativo.toUpperCase();
   if (!ativo) return erro('Digite o nome do ativo.');
   if (!F.data || F.data > S.hoje) return erro('Escolha uma data até hoje.');
-  const o = { id: uid(), cls: c, tipo: t, ativo, data: F.data, ts: Date.now() };
+  const o = { id: F.editId || uid(), cls: c, tipo: t, ativo, data: F.data, ts: F.ts || Date.now() };
+  if (F.editId && F.auto && t === 'provento') { o.auto = true; o.editado = true; }
   let ligado = null;
   if (t === 'provento' || c === 'cdb') {
     o.valor = num(F.valor); if (!(o.valor > 0)) return erro('Digite o valor em reais, por exemplo 150,00.');
@@ -488,19 +530,11 @@ async function salvar() {
       const cdb = cdbPadrao();
       if (t === 'compra' && fonte === 'cdb') { const disp = cdbValor(cdb, F.data).liq, tot = opTotalBRL(o); if (tot > disp + 0.01) return erro('O ' + cdb + ' tinha ' + brl(disp) + ' líquido nessa data. Desmarque a opção ou ajuste a compra.'); }
       if (t === 'compra' && fonte === 'usdt') { const disp = qtdEm('cripto', 'USDT', F.data), tot = opTotalOrig(o); if (tot > disp + 0.01) return erro('Você tinha ' + nf2.format(disp) + ' USDT nessa data e a compra custa ' + nf2.format(tot) + '. Desmarque a opção ou ajuste a compra.'); }
-      ligado = Object.assign({ id: uid(), taxas: 0, ts: o.ts + 1 }, linkedOp(o, fonte, cdb, cdb ? cdbValor(cdb, F.data).pct : 100));
+      ligado = Object.assign({ id: F.linkId || uid(), taxas: 0, ts: o.ts + 1 }, linkedOp(o, fonte, cdb, cdb ? cdbValor(cdb, F.data).pct : 100));
       o.link = ligado.id; o.fonte = fonte;
     }
   }
-  const btn = root.querySelector('#f-save'); btn.disabled = true;
-  try {
-    const p = store.salvar(ligado ? [o, ligado] : [o]);
-    // offline o Firestore guarda e envia depois: não espera a resposta para fechar
-    await Promise.race([p, new Promise(r => setTimeout(r, 1500))]);
-    p.catch(() => toast('Não deu para salvar. Confira a internet.'));
-  } catch (e) { btn.disabled = false; return erro('Não deu para salvar. Tente de novo.'); }
-  closeSheet();
-  toast(!ligado ? TIPO_NOME[t] + ' registrada' : t === 'compra' ? 'Compra registrada e paga com ' + (o.fonte === 'usdt' ? 'USDT' : 'o CDB') : 'Venda registrada e valor guardado ' + (o.fonte === 'usdt' ? 'em USDT' : 'no CDB'));
+  return { o, ligado };
 }
 document.addEventListener('click', e => { if (e.target && e.target.id === 'f-save') salvar(); });
 

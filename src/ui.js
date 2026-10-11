@@ -1,6 +1,6 @@
 /* Telas do app (segue o protótipo aprovado). */
 import { nf2, nf0, nf4, nfq, r2, num, esc, uid, semAcento, daysBetween, parse, iso, today, fmtDate, fmtDM, fmtHora, monthKey, monthName,
-  MESES, MESES_LONGOS, storeGet, storeSet } from './util.js';
+  MESES, MESES_LONGOS, storeGet, storeSet, storeDel } from './util.js';
 import { S, CLS, ORDER, TIPOS, TIPO_NOME, byDate, irRate, opsOf, ativosOf, cdbPadrao, opTotalBRL, opTotalOrig, opTaxBRL, qtdEm, posRV, posCDB,
   cdbValor, pos, carteira, retorno, dy12, yoc, fonteDe, linkedOp, fonteTxt, aReceber, proventosPendentes, dolarCripto, relatorioIR, codigoIR } from './calc.js';
 import { CRIPTO, RESERVA } from './listas.js';
@@ -47,7 +47,11 @@ export function iniciarUI(el, st, opts) {
     '<div class="banner" id="banner" hidden></div><main id="view"></main></div>' +
     '<button class="fab" id="fab" aria-label="Novo lançamento" hidden>' + PLUS + '</button>' +
     '<nav class="tabs" id="tabs" hidden><div class="in">' + ['carteira', 'proventos', 'lancamentos'].map(t => '<button data-tab="' + t + '">' + TAB_ICONS[t] + { carteira: 'Carteira', proventos: 'Proventos', lancamentos: 'Lançamentos' }[t] + '</button>').join('') + '</div></nav>' +
-    '<div id="sheetRoot"></div><div id="toast" class="toast" role="status" hidden></div>';
+    '<div id="sheetRoot"></div><div id="toast" class="toast" role="status" hidden></div>' +
+    '<div class="lock" id="lock" hidden><div class="lock-in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M12 11c0 3.5-1 6.5-2.5 9M8.5 6.6A6 6 0 0 1 18 11c0 1.5-.1 3-.4 4.4M6 9a6 6 0 0 0-.1 1.1c0 2.4-.6 4.6-1.6 6.6M15 11a3 3 0 0 0-6 0c0 2.2-.5 4.3-1.4 6.2M14.6 20.4c.6-1.6 1-3.3 1.2-5"/></svg>' +
+    '<h2>Minha carteira</h2><p>Use a sua digital para abrir.</p><button class="primary" id="lock-ok">Desbloquear</button>' +
+    '<button class="linkbtn" id="lock-google">Não consigo usar a digital</button><p class="err" id="lock-err" hidden></p></div></div>';
   root.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; render(); window.scrollTo(0, 0); }));
   root.querySelector('#eye').addEventListener('click', () => { hide = !hide; storeSet(HIDE_KEY, hide ? '1' : '0'); render(); });
   root.querySelector('#more').addEventListener('click', menu);
@@ -58,6 +62,18 @@ export function iniciarUI(el, st, opts) {
     const r = e.target.closest('[data-ativo]'); if (r) detalhe(r.dataset.cls, r.dataset.ativo);
   });
   window.addEventListener('popstate', () => { if (root.querySelector('#scrim')) closeSheet(true); });
+  root.querySelector('#lock-ok').addEventListener('click', () => desbloquear());
+  root.querySelector('#lock-google').addEventListener('click', async () => {
+    const b = root.querySelector('#lock-google');
+    if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Toque de novo para sair e entrar com a conta Google (o bloqueio será desligado)'; return; }
+    storeDel(LOCK_KEY); root.querySelector('#lock').hidden = true; await store.sair();
+  });
+  if (storeGet(LOCK_KEY)) bloquear();
+  document.addEventListener('visibilitychange', () => {
+    if (!storeGet(LOCK_KEY)) return;
+    if (document.visibilityState === 'hidden') { escondidoEm = Date.now(); return; }
+    if (escondidoEm && Date.now() - escondidoEm > 60000) bloquear();
+  });
   render();
 }
 
@@ -76,6 +92,46 @@ export function setLista(l) { app.lista = l; }
 export function mostrarBanner(html, onClick) {
   const b = root.querySelector('#banner'); b.innerHTML = html; b.hidden = false;
   b.onclick = e => { if (e.target.closest('button')) onClick(); };
+}
+
+/* ---------- Bloqueio com digital (biometria do celular, pelo navegador) ----------
+   Ao ligar, o celular cria uma chave de acesso só para este app; para abrir, o celular pede a digital (ou o desbloqueio de tela).
+   É uma trava local: os dados continuam protegidos pelo login Google. */
+const LOCK_KEY = 'mc-lock';
+let escondidoEm = 0, desbloqueando = false;
+const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64 = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+async function biometriaDisponivel() {
+  try { return !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch (e) { return false; }
+}
+async function pedirDigital(id) {
+  return navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), rpId: location.hostname,
+    allowCredentials: [{ type: 'public-key', id: unb64(id), transports: ['internal'] }], userVerification: 'required', timeout: 60000 } });
+}
+async function ligarDigital() {
+  const cred = await navigator.credentials.create({ publicKey: {
+    challenge: crypto.getRandomValues(new Uint8Array(32)),
+    rp: { name: 'Minha Carteira', id: location.hostname },
+    user: { id: crypto.getRandomValues(new Uint8Array(16)), name: (app.user && app.user.email) || 'carteira', displayName: 'Minha Carteira' },
+    pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+    authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' },
+    timeout: 60000, attestation: 'none' } });
+  storeSet(LOCK_KEY, b64(cred.rawId));
+}
+function bloquear() {
+  const l = root.querySelector('#lock'); if (!l) return;
+  l.hidden = false; root.querySelector('#lock-err').hidden = true;
+  desbloquear();
+}
+async function desbloquear() {
+  const id = storeGet(LOCK_KEY); const l = root.querySelector('#lock');
+  if (!id) { l.hidden = true; return; }
+  if (desbloqueando) return; desbloqueando = true;
+  try { await pedirDigital(id); l.hidden = true; escondidoEm = 0; }
+  catch (e) {
+    const er = root.querySelector('#lock-err');
+    if (e && e.name !== 'NotAllowedError') { er.textContent = 'O celular não respondeu. Toque em Desbloquear para tentar de novo.'; er.hidden = false; }
+  } finally { desbloqueando = false; }
 }
 
 /* Proventos anunciados que já foram pagos viram lançamentos sozinhos */
@@ -547,6 +603,8 @@ function menu() {
     '<section class="ret"><h4>Conta</h4>' + (app.demo ? '<p class="note" style="margin:0">Modo demonstração: os dados são de exemplo e ficam só neste aparelho.</p>' :
       '<div class="l"><span>Entrou como</span><span class="ell">' + esc(u.email || '') + '</span></div>') +
     '<button class="ghost" id="m-sair" style="margin-top:10px">' + (app.demo ? 'Voltar aos dados de exemplo' : 'Sair da conta') + '</button></section>' +
+    ('<section class="ret"><h4>Segurança</h4><p class="note" style="margin:0">' + (storeGet(LOCK_KEY) ? 'O app pede a sua digital toda vez que abre (e quando você volta depois de 1 minuto fora).' : 'Peça a digital do celular toda vez que abrir o app.') + '</p>' +
+      '<button class="ghost" id="m-lock" style="margin-top:10px">' + (storeGet(LOCK_KEY) ? 'Desligar bloqueio com digital' : 'Ligar bloqueio com digital') + '</button><p class="err" id="m-lock-err" style="margin:8px 0 0" hidden></p></section>') +
     '<section class="ret"><h4>Última atualização</h4>' +
       linha('Ações e FIIs', fmtHora(at.b3)) + linha('Cripto e USDT', fmtHora(at.cripto)) + linha('Tesouro Direto', fmtHora(at.tesouro)) +
       linha('CDI', fmtHora(at.cdi)) + linha('Proventos anunciados', fmtHora(at.proventos)) +
@@ -558,10 +616,26 @@ function menu() {
     const s = b.querySelector('#m-sair');
     s.addEventListener('click', async () => {
       if (!s.dataset.armed) { s.dataset.armed = '1'; s.textContent = app.demo ? 'Toque de novo para apagar o que você testou' : 'Toque de novo para sair'; s.classList.add('danger'); return; }
-      closeSheet(); await store.sair();
+      closeSheet(); storeDel(LOCK_KEY); await store.sair();
     });
     b.querySelector('#m-ir').addEventListener('click', () => relatorio(+S.hoje.slice(0, 4) - 1));
     b.querySelector('#m-bkp').addEventListener('click', copia);
+    const lk = b.querySelector('#m-lock');
+    if (lk) lk.addEventListener('click', async () => {
+      const er = b.querySelector('#m-lock-err'); er.hidden = true;
+      const ligado = storeGet(LOCK_KEY);
+      try {
+        if (ligado) { await pedirDigital(ligado); storeDel(LOCK_KEY); toast('Bloqueio com digital desligado'); }
+        else {
+          if (!await biometriaDisponivel()) { er.textContent = 'Este celular não tem digital ou desbloqueio de tela configurado para o navegador. Configure em Ajustes do Android → Segurança.'; er.hidden = false; return; }
+          await ligarDigital(); toast('Bloqueio com digital ligado');
+        }
+        closeSheet();
+      } catch (e) {
+        if (e && e.name === 'NotAllowedError') return; // a pessoa cancelou
+        er.textContent = 'Não deu para ' + (ligado ? 'desligar' : 'ligar') + ' o bloqueio. Tente de novo.'; er.hidden = false;
+      }
+    });
   });
 }
 

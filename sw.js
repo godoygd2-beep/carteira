@@ -1,6 +1,6 @@
 /* Modo offline: guarda o app no aparelho para abrir sem internet.
    Para publicar uma versão nova, mude VERSION; o app mostra "Tem uma versão nova do app". */
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const CORE = 'mc-core-' + VERSION;
 const RUNTIME = 'mc-runtime';
 const DADOS = 'mc-dados';

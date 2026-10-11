@@ -173,3 +173,12 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .del.armed{color:#fff;background:var(--neg)}
 
 .toast{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;z-index:30;max-width:calc(100% - 32px);text-align:center}
+
+/* Bloqueio com digital */
+.lock{position:fixed;inset:0;z-index:60;background:var(--bg);display:grid;place-items:center;padding:24px 16px calc(24px + env(safe-area-inset-bottom,0px))}
+.lock-in{display:grid;justify-items:center;gap:12px;text-align:center;width:100%;max-width:340px}
+.lock-in svg{width:64px;height:64px;color:var(--accent)}
+.lock-in h2{font-family:var(--f-display);font-size:24px;margin:4px 0 0}
+.lock-in p{margin:0;color:var(--muted)}
+.lock-in .primary{margin-top:10px}
+.linkbtn{color:var(--muted);font-size:14px;font-weight:600;text-decoration:underline;padding:8px}

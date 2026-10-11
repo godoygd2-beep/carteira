@@ -5,7 +5,7 @@ import { carregarMercado, carregarLista, criptoAoVivo, mercadoExemplo } from './
 import { iniciarUI, setStoreState, setMercado, setLista, mostrarBanner } from './ui.js';
 import { S, ativosOf } from './calc.js';
 
-export const VERSAO = '1.1.0';
+export const VERSAO = '1.2.0';
 
 const demo = location.hash === '#demo' || !FIREBASE.apiKey;
 const store = demo ? createDemoStore() : createFirebaseStore(FIREBASE);

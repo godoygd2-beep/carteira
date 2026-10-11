@@ -1,0 +1,74 @@
+name: Dados de mercado e publicação
+
+# Atualiza os dados de mercado e publica o app no GitHub Pages.
+# - dias úteis, a cada 30 minutos das 10h às 18h30 (Brasília): preços da B3, cripto, dólar e avisos de FIIs
+# - todo dia às 7h: também CDI, IPCA, Tesouro e proventos das empresas
+# - a cada envio de código: publica o app de novo
+on:
+  schedule:
+    - cron: '*/30 13-21 * * 1-5'
+    - cron: '0 10 * * *'
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dias:
+        description: 'Dias de avisos de FIIs para buscar (400 = um ano)'
+        default: '3'
+      forcar:
+        description: 'Forçar fontes (bcb,tesouro,proventosAcoes)'
+        default: ''
+      sonda:
+        description: 'Mostrar amostras das respostas (1 = sim)'
+        default: '0'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Buscar dados de mercado
+        run: node robo/atualizar.mjs
+        env:
+          DIAS: ${{ inputs.dias || '3' }}
+          FORCAR: ${{ inputs.forcar || '' }}
+          SONDA: ${{ inputs.sonda || '0' }}
+      - name: Montar o site
+        run: |
+          mkdir -p _site
+          cp -r index.html style.css sw.js manifest.webmanifest icons src _site/
+          cp -r saida/dados _site/dados
+          touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
+      # O GitHub pausa tarefas agendadas de repositórios sem atividade por 60 dias.
+      # Uma vez por mês o robô grava a data aqui para continuar ativo.
+      - name: Manter o robô ativo
+        if: github.event_name == 'schedule' && github.event.schedule == '0 10 * * *'
+        run: |
+          if [ "$(date -u +%d)" = "01" ]; then
+            date -u +%F > .github/ativo.txt
+            git config user.name "robo-da-carteira"
+            git config user.email "robo@users.noreply.github.com"
+            git add .github/ativo.txt && git commit -m "Robô ativo" && git push || true
+          fi

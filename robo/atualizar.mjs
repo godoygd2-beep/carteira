@@ -50,9 +50,10 @@ async function anterior() {
   const vazio = { mk: { atualizado: {}, precos: {}, tesouro: {}, cripto: {}, cdi: [], ipca: [], anuncios: [] }, ativos: { acao: [], fii: [], tesouro: [] } };
   if (!SITE) return vazio;
   try {
-    const [mk, ativos] = await Promise.all([get(SITE + 'dados/mercado.json?x=' + Date.now(), {}, 2), get(SITE + 'dados/ativos.json?x=' + Date.now(), {}, 2).catch(() => vazio.ativos)]);
+    const [mk, ativos, estado] = await Promise.all([get(SITE + 'dados/mercado.json?x=' + Date.now(), {}, 2), get(SITE + 'dados/ativos.json?x=' + Date.now(), {}, 2).catch(() => vazio.ativos),
+      get(SITE + 'dados/robo.json?x=' + Date.now(), {}, 2).catch(() => ({}))]);
     log('dados anteriores: ok');
-    return { mk: Object.assign(vazio.mk, mk), ativos };
+    return { mk: Object.assign(vazio.mk, mk, { fnetLidos: estado.fnetLidos || [] }), ativos };
   } catch (e) { log('sem dados anteriores (' + e.message + ')'); return vazio; }
 }
 
@@ -294,7 +295,9 @@ for (const [nome, fn, precisa] of tarefas) {
 }
 mk.atualizado.robo = agora.toISOString();
 await mkdir(OUT, { recursive: true });
+const lidos = mk.fnetLidos || []; delete mk.fnetLidos;
 await writeFile(OUT + '/mercado.json', JSON.stringify(mk));
+await writeFile(OUT + '/robo.json', JSON.stringify({ fnetLidos: lidos }));
 await writeFile(OUT + '/ativos.json', JSON.stringify(ativos));
 log('gravado: ' + OUT + ' (' + (JSON.stringify(mk).length / 1024 | 0) + ' KB)' + (erros.length ? ' · falharam: ' + erros.join(', ') : ''));
 if (process.env.GITHUB_STEP_SUMMARY) await writeFile(process.env.GITHUB_STEP_SUMMARY, '### Dados de mercado\n' + (erros.length ? 'Falharam: ' + erros.join(', ') : 'Tudo certo') + '\n', { flag: 'a' }).catch(() => {});

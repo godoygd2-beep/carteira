@@ -327,6 +327,9 @@ for (const [nome, fn, precisa] of tarefas) {
   try { await fn(); } catch (e) { erros.push(nome); log('ERRO em ' + nome + ': ' + e.message); }
 }
 mk.atualizado.robo = agora.toISOString();
+// mesmo ativo, tipo e data de pagamento vindo do FundosNET e da B3: fica só o da B3
+{ const b3 = new Set((mk.anuncios || []).filter(a => a.o).map(a => a.t + '|' + a.tipo + '|' + a.pag));
+  mk.anuncios = (mk.anuncios || []).filter(a => a.o || !b3.has(a.t + '|' + a.tipo + '|' + a.pag)); }
 { const porO = {}; (mk.anuncios || []).forEach(a => { porO[a.o || 'fundosnet'] = (porO[a.o || 'fundosnet'] || 0) + 1; });
   log('resumo: CDI último ' + JSON.stringify((mk.cdi || []).at(-1)) + ', IPCA último ' + JSON.stringify((mk.ipca || []).at(-1)) + ', dólar ' + mk.dolar + ', USDT ' + mk.usdtbrl +
     ', ITSA4 ' + mk.precos.ITSA4 + ', MXRF11 ' + mk.precos.MXRF11 + ', Selic 2031 ' + (mk.tesouro || {})['Tesouro Selic 2031'] + ', anúncios ' + JSON.stringify(porO));

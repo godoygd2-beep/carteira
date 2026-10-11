@@ -83,5 +83,5 @@ jobs:
           git config user.name "robo-da-carteira"
           git config user.email "robo@users.noreply.github.com"
           git checkout --orphan diagnostico
-          git rm -rq --cached . && cp robo.log /tmp/robo.log && git clean -fdq -e robo.log
-          git add robo.log && git commit -qm "Diagnóstico do robô" && git push -f origin diagnostico
+          git rm -rq --cached . && cp robo.log /tmp/robo.log && git clean -fdq -e robo.log -e _site
+          mkdir -p dados && cp _site/dados/*.json dados/ 2>/dev/null || true; git add robo.log dados && git commit -qm "Diagnóstico do robô" && git push -f origin diagnostico

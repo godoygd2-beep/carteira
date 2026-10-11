@@ -14,7 +14,7 @@ iniciarUI(root, store, { versao: VERSAO });
 
 let mk = null;
 async function mercado() {
-  if (demo) { mk = mercadoExemplo(); setMercado(mk); return; }
+  if (demo && !location.search.includes('real')) { mk = mercadoExemplo(); setMercado(mk); return; }
   mk = await carregarMercado(m => { mk = m; setMercado(m); });
   await cripto();
 }

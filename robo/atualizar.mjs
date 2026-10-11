@@ -310,6 +310,7 @@ function juntar(mk, novos, origem) {
 /* ---------- Rodada ---------- */
 const { mk, ativos } = await anterior();
 mk.atualizado = mk.atualizado || {};
+if (FORCAR.includes('limpar')) { log('limpando dados anteriores'); mk.anuncios = []; mk.fnetLidos = []; mk.atualizado = {}; }
 const tarefas = [
   ['acoes', () => acoes(mk, ativos), true],
   ['cripto', () => cripto(mk), true],
@@ -326,6 +327,11 @@ for (const [nome, fn, precisa] of tarefas) {
   try { await fn(); } catch (e) { erros.push(nome); log('ERRO em ' + nome + ': ' + e.message); }
 }
 mk.atualizado.robo = agora.toISOString();
+{ const porO = {}; (mk.anuncios || []).forEach(a => { porO[a.o || 'fundosnet'] = (porO[a.o || 'fundosnet'] || 0) + 1; });
+  log('resumo: CDI último ' + JSON.stringify((mk.cdi || []).at(-1)) + ', IPCA último ' + JSON.stringify((mk.ipca || []).at(-1)) + ', dólar ' + mk.dolar + ', USDT ' + mk.usdtbrl +
+    ', ITSA4 ' + mk.precos.ITSA4 + ', MXRF11 ' + mk.precos.MXRF11 + ', Selic 2031 ' + (mk.tesouro || {})['Tesouro Selic 2031'] + ', anúncios ' + JSON.stringify(porO));
+  log('MXRF11: ' + JSON.stringify((mk.anuncios || []).filter(a => a.t === 'MXRF11').slice(-3)) + ' · ITSA4: ' + JSON.stringify((mk.anuncios || []).filter(a => a.t === 'ITSA4').slice(-3)));
+  log('futuros: ' + (mk.anuncios || []).filter(a => a.pag > iso(agora)).length + ', tamanhos KB: ' + JSON.stringify(Object.fromEntries(Object.entries(mk).map(([k, v]) => [k, JSON.stringify(v).length / 1024 | 0])))); }
 await mkdir(OUT, { recursive: true });
 const lidos = mk.fnetLidos || []; delete mk.fnetLidos;
 await writeFile(OUT + '/mercado.json', JSON.stringify(mk));

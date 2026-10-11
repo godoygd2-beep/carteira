@@ -41,9 +41,11 @@ async function get(url, opt = {}, tentativas = 3) {
 const iso = d => d.toISOString().slice(0, 10);
 const dmY = d => String(d.getUTCDate()).padStart(2, '0') + '/' + String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + d.getUTCFullYear();
 const brData = s => { const m = /(\d{2})\/(\d{2})\/(\d{4})/.exec(s || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : null; };
-const brNum = s => typeof s === 'number' ? s : parseFloat(String(s).replace(/\./g, '').replace(',', '.'));
+// "1.234,56" (padrão brasileiro) ou "0.0508" (ponto decimal)
+const brNum = s => { if (typeof s === 'number') return s; s = String(s ?? '').trim(); return s.includes(',') ? parseFloat(s.replace(/\./g, '').replace(',', '.')) : parseFloat(s); };
 const velho = (ts, horas) => !ts || (agora - new Date(ts)) > horas * HORA;
-async function emLotes(lista, n, fn) { const out = []; for (let i = 0; i < lista.length; i += n) out.push(...await Promise.all(lista.slice(i, i + n).map(fn))); return out; }
+// roda fn em até n itens ao mesmo tempo
+async function emLotes(lista, n, fn) { let i = 0; const out = []; await Promise.all(Array.from({ length: n }, async () => { while (i < lista.length) { const k = i++; out[k] = await fn(lista[k]); } })); return out; }
 
 /* ---------- Dados publicados antes (para manter o que não for atualizado agora) ---------- */
 async function anterior() {
@@ -234,6 +236,34 @@ function tickerAcao(isin) {
   return n ? emp + n : null;
 }
 
+/* ---------- Proventos de FIIs: B3 (histórico de cada fundo, uma vez por dia) ---------- */
+async function proventosFIIb3(mk, ativos) {
+  const fundos = [...new Set((ativos.fii || []).map(([t]) => t.slice(0, 4)))];
+  const fiis = new Set((ativos.fii || []).map(([t]) => t));
+  const novos = []; let falhas = 0, primeiro = true, vazios = 0;
+  await emLotes(fundos, 4, async base => {
+    try {
+      const q = Buffer.from(JSON.stringify({ cnpj: '0', identifierFund: base, typeFund: 7 })).toString('base64');
+      const j = await get('https://sistemaswebb3-listados.b3.com.br/fundsProxy/fundsCall/GetListedSupplementFunds/' + q, { timeout: 20000 }, 2);
+      if (primeiro) { primeiro = false; sonda('B3 FII', { base, chaves: Object.keys(j || {}), exemplo: (j.cashDividends || []).slice(0, 2) }); }
+      const lista = j.cashDividends || []; if (!lista.length) vazios++;
+      for (const p of lista) {
+        const pag = brData(p.paymentDate), com = brData(p.lastDatePrior), v = brNum(p.rate);
+        if (!pag || !(v > 0)) continue;
+        const t = tickerFII('', p.isinCode || p.assetIssued, fiis) || (fiis.has(base + '11') ? base + '11' : null);
+        if (!t) continue;
+        const lbl = (p.label || '').toUpperCase();
+        novos.push({ t, tipo: lbl.includes('AMORT') ? 'Amortização' : 'Rendimento', com, pag, v: +v.toFixed(8) });
+      }
+    } catch (e) { falhas++; }
+    await new Promise(r => setTimeout(r, 200));
+  });
+  log('B3 FIIs: ' + fundos.length + ' fundos, ' + novos.length + ' proventos' + (vazios ? ', ' + vazios + ' sem histórico' : '') + (falhas ? ', ' + falhas + ' com erro' : ''));
+  if (fundos.length && falhas > fundos.length / 2) throw new Error('B3 recusou a maioria das consultas de FIIs');
+  juntar(mk, novos.filter(x => x.pag >= iso(new Date(agora - 400 * 864e5))), 'fiiB3');
+  mk.atualizado.proventosFII = agora.toISOString();
+}
+
 /* ---------- Proventos de ações: B3 ---------- */
 async function proventosAcoes(mk, ativos) {
   const empresas = [...new Set((ativos.acao || []).map(([t]) => t).filter(t => /^[A-Z]{4}(3|4|5|6|11)$/.test(t)).map(t => t.slice(0, 4)))];
@@ -271,8 +301,9 @@ function juntar(mk, novos, origem) {
   const lim = iso(new Date(agora - 400 * 864e5));
   const chave = a => a.t + '|' + a.tipo + '|' + a.com + '|' + a.pag + '|' + a.v;
   const map = new Map();
-  for (const a of mk.anuncios || []) if (a.pag >= lim && !(origem === 'acao' && a.o === 'acao')) map.set(chave(a), a);
-  for (const a of novos) { const x = { t: a.t, tipo: a.tipo, com: a.com, pag: a.pag, v: a.v }; if (origem === 'acao') x.o = 'acao'; map.set(chave(x), x); }
+  // a fonte "completa" (B3) substitui o que ela mesma tinha trazido antes; o FundosNET só acrescenta
+  for (const a of mk.anuncios || []) if (a.pag >= lim && !(origem !== 'fii' && a.o === origem)) map.set(chave(a), a);
+  for (const a of novos) { const x = { t: a.t, tipo: a.tipo, com: a.com, pag: a.pag, v: a.v }; if (origem !== 'fii') x.o = origem; if (!map.has(chave(x)) || origem !== 'fii') map.set(chave(x), x); }
   mk.anuncios = [...map.values()].sort((a, b) => a.pag < b.pag ? -1 : a.pag > b.pag ? 1 : a.t.localeCompare(b.t));
 }
 
@@ -286,6 +317,7 @@ const tarefas = [
   ['bcb', () => bcb(mk), velho(mk.atualizado.cdi, 6)],
   ['tesouro', () => tesouro(mk, ativos), velho(mk.atualizado.tesouro, 20)],
   ['fii', () => proventosFII(mk), true],
+  ['proventosFII', () => proventosFIIb3(mk, ativos), velho(mk.atualizado.proventosFII, 20)],
   ['proventosAcoes', () => proventosAcoes(mk, ativos), velho(mk.atualizado.proventosAcoes, 20)]
 ];
 const erros = [];

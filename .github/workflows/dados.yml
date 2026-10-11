@@ -16,7 +16,7 @@ on:
         description: 'Dias de avisos de FIIs para buscar (400 = um ano)'
         default: '3'
       forcar:
-        description: 'Forçar fontes (bcb,tesouro,proventosAcoes)'
+        description: 'Forçar fontes (bcb,tesouro,proventosAcoes,proventosFII)'
         default: ''
       sonda:
         description: 'Mostrar amostras das respostas (1 = sim)'

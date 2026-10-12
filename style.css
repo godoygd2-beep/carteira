@@ -182,3 +182,31 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .lock-in p{margin:0;color:var(--muted)}
 .lock-in .primary{margin-top:10px}
 .linkbtn{color:var(--muted);font-size:14px;font-weight:600;text-decoration:underline;padding:8px}
+
+/* Aba Análise */
+.critbox{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-size:14px}
+.critbox b{color:var(--accent);flex-shrink:0}
+.seg-sm button{padding:7px 6px;font-size:13px}
+.fhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.fhead .s{display:block;font-size:13px}
+.pill{font-size:12px;font-weight:700;padding:4px 9px;border-radius:999px;background:var(--chip);white-space:nowrap}
+.chartbox{margin-top:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px}
+.chart{width:100%;margin-top:8px}
+.chart-ifr{margin-top:0}
+.ifr-h{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px;padding:0 2px}
+.ifr-h b{font-weight:700;color:var(--ink)}
+.ifr-baixo{color:var(--pos)!important}
+.ifr-alto{color:var(--neg)!important}
+.ifrs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.ifrs div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:9px 10px;display:grid;gap:1px}
+.ifrs span{font-size:12px;color:var(--muted)}
+.ifrs b{font-family:var(--f-display);font-size:20px}
+.ifrs small{font-size:12px;color:var(--muted)}
+.ifrs .ifr-baixo b,.ifrs .ifr-baixo small{color:var(--pos)}
+.ifrs .ifr-alto b,.ifrs .ifr-alto small{color:var(--neg)}
+.resumo{margin:0;padding:0;list-style:none;display:grid;gap:8px}
+.resumo li{position:relative;padding-left:18px;font-size:14px;line-height:1.45}
+.resumo li::before{content:"";position:absolute;left:2px;top:.5em;width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.resumo li.ok::before{background:var(--pos)}
+.resumo li.alerta::before{background:var(--neg)}
+.tabs button{font-size:11px}

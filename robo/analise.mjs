@@ -104,12 +104,13 @@ export async function historico(ativos, opts) {
 }
 
 /* ---------- Informe mensal dos FIIs (CVM) ---------- */
+function g0(c, cab, nome) { const i = cab.findIndex(h => h === nome); const j = i >= 0 ? i : cab.findIndex(h => h.includes(nome)); return j >= 0 ? c[j] : ''; }
 function csvLinha(l) { return l.split(';').map(x => x.replace(/^"|"$/g, '').trim()); }
 export async function cvmFII(opts) {
   const { log, sonda, agora } = opts;
   const out = {}; // ticker -> { vp, cotistas, seg, pl, ref }
   const ultimo = {}; // cnpj -> dados mais recentes
-  const isinDe = {}, segDe = {}, nomeDe = {};
+  const isinDe = {}, segDe = {}, nomeDe = {}, apDe = {}, refGeral = {};
   for (const a of [agora.getUTCFullYear() - 1, agora.getUTCFullYear()]) {
     const zip = CACHE + '/cvm' + a + '.zip';
     try { await baixar('https://dados.cvm.gov.br/dados/FII/DOC/INF_MENSAL/DADOS/inf_mensal_fii_' + a + '.zip', zip, log); }
@@ -121,14 +122,21 @@ export async function cvmFII(opts) {
       for await (const l of linhasZip(zip, arq)) {
         const c = csvLinha(l);
         if (!cab) { cab = c.map(x => x.toLowerCase()); if (sonda) sonda('CVM ' + arq, cab.join(' | ')); continue; }
-        if (tipo === 'ap') { if (sonda && !ultimo.__ap && /MXRF|maxi renda/i.test(l)) { ultimo.__ap = 1; sonda('CVM ativo MXRF', l); } continue; }
-        const g = nome => { const i = cab.findIndex(h => h.includes(nome)); return i >= 0 ? c[i] : ''; };
-        const cnpj = g('cnpj'), ref = g('data_referencia');
+        const g = nome => g0(c, cab, nome);
+        if (tipo === 'ap') {
+          const n = h => { const v = parseFloat(g(h)); return isFinite(v) ? v : 0; };
+          const cnpjA = g('cnpj'), refA = g('data_referencia');
+          const total = n('total_investido') || 0; if (!(total > 0)) continue;
+          const papel = ['cri', 'cri_cra', 'lci', 'lci_lca', 'lig', 'letras_hipotecarias', 'certificados_deposito_valores_mobiliarios', 'debentures', 'notas_promissorias'].reduce((t, k) => t + n(k), 0);
+          const comp = { total, papel, imoveis: n('direitos_bens_imoveis'), fii: n('fii'), ref: refA };
+          if (!apDe[cnpjA] || refA > apDe[cnpjA].ref) apDe[cnpjA] = comp;
+          continue;
+        }
+        const cnpj = g0(c, cab, 'cnpj'), ref = g0(c, cab, 'data_referencia');
         if (tipo === 'geral') {
-          const isin = g('isin'); if (isin) isinDe[cnpj] = isin.toUpperCase();
-          const seg = g('segmento'); if (seg) segDe[cnpj] = seg;
-          if (sonda && /MAXI RENDA/i.test(l) && !segDe.__s) { segDe.__s = 1; sonda('CVM geral MXRF', l); }
-          nomeDe[cnpj] = g('nome');
+          if (refGeral[cnpj] && ref < refGeral[cnpj]) continue; refGeral[cnpj] = ref;
+          const isin = g('codigo_isin'); if (isin) isinDe[cnpj] = isin.toUpperCase();
+          segDe[cnpj] = g('segmento_atuacao'); nomeDe[cnpj] = g('nome_fundo_classe');
         } else {
           const vp = parseFloat((g('valor_patrimonial_cotas') || g('valor_patrimonial_cota')).replace(',', '.'));
           const cot = parseInt(g('total_numero_cotistas') || g('numero_cotistas'), 10);
@@ -143,10 +151,29 @@ export async function cvmFII(opts) {
   for (const [cnpj, d] of Object.entries(ultimo)) {
     const isin = isinDe[cnpj] || ''; if (!/^BR[A-Z]{4}CTF/.test(isin)) continue;
     const t = isin.slice(2, 6) + '11';
-    out[t] = { vp: +d.vp.toFixed(4), cot: d.cot || null, seg: segDe[cnpj] || '', ref: d.ref };
+    out[t] = { vp: +d.vp.toFixed(4), cot: d.cot || null, seg: tipoFII(segDe[cnpj], apDe[cnpj]), nome: nomeFII(nomeDe[cnpj]), ref: d.ref };
   }
   log('CVM: ' + Object.keys(out).length + ' FIIs com valor patrimonial');
+  if (sonda) sonda('CVM tipos', ['MXRF11', 'HGLG11', 'KNCR11', 'KNRI11', 'XPML11', 'BCFF11', 'HFOF11', 'VISC11', 'CPTS11', 'BTLG11'].map(t => t + ': ' + (out[t] ? out[t].seg + ' · ' + out[t].nome : '—')).join('\n'));
   return out;
+}
+
+/* Tipo do FII pela carteira declarada à CVM: papel (CRI/LCI), fundo de fundos, tijolo (segmento) ou híbrido */
+const TIJOLO = ['Logística', 'Shoppings', 'Escritórios', 'Lajes Corporativas', 'Residencial', 'Hospital', 'Varejo', 'Hotel', 'Agências', 'Educacional'];
+function tipoFII(seg, ap) {
+  seg = (seg || '').trim();
+  if (ap && ap.total > 0) {
+    if (ap.fii / ap.total > 0.5) return 'Fundo de fundos';
+    if (ap.papel / ap.total > 0.6) return 'Papel (recebíveis)';
+    if (ap.imoveis / ap.total > 0.6) return TIJOLO.includes(seg) ? seg : 'Tijolo (vários)';
+    return 'Híbrido';
+  }
+  if (/t[íi]tulos/i.test(seg)) return 'Papel (recebíveis)';
+  return TIJOLO.includes(seg) ? seg : (seg ? 'Híbrido' : '');
+}
+function nomeFII(n) {
+  n = (n || '').replace(/^(FII|FUNDO DE INVESTIMENTO IMOBILI[AÁ]RIO)\s*[-–]?\s*/i, '').replace(/\s*-?\s*(FII|FUNDO DE INVESTIMENTO IMOBILI[AÁ]RIO).*$/i, '').replace(/ RESPONSABILIDADE LIMITADA/i, '').trim();
+  return n.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
 }
 
 /* ---------- Indicadores ---------- */
@@ -187,19 +214,22 @@ export async function gerarAnalise(H, mk, ativos, fiiCVM, saida, opts) {
     const preco = mk.precos[t];
     if (!rows.length && !preco) continue;
     // pregão de hoje com o preço atual (enquanto o arquivo oficial do dia não sai)
-    if (preco > 0 && rows.length && rows.at(-1)[0] < hoje) {
+    const hUTC = agora.getUTCHours() + agora.getUTCMinutes() / 60, diaUtil = agora.getUTCDay() > 0 && agora.getUTCDay() < 6;
+    if (preco > 0 && rows.length && rows.at(-1)[0] < hoje && diaUtil && hUTC >= 13.1 && Math.round(preco * 100) !== rows.at(-1)[4]) {
       const c = Math.round(preco * 100); rows.push([hoje, c, c, c, c, 0]);
     }
     const recentes = rows.slice(-260);
     const closes = rows.map(r => r[4] / 100);
     const liq = recentes.slice(-30).filter(r => r[5] > 0);
     const P = (prov[t] || []).filter(a => a.pag > ini12 && a.pag <= agora.toISOString().slice(0, 10));
-    const meses = new Set(P.map(a => a.pag.slice(0, 7)));
+    // meses com pagamento entre os 12 meses-calendário anteriores ao mês atual
+    const mAtual = agora.toISOString().slice(0, 7), m12 = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth() - 12, 1)).toISOString().slice(0, 7);
+    const meses = new Set((prov[t] || []).filter(a => a.pag.slice(0, 7) >= m12 && a.pag.slice(0, 7) < mAtual).map(a => a.pag.slice(0, 7)));
     const somaP = P.reduce((s, a) => s + a.v, 0);
     const ultP = [...(prov[t] || [])].filter(a => a.pag <= agora.toISOString().slice(0, 10)).sort((a, b) => a.pag < b.pag ? -1 : 1).at(-1);
     const fii = cls === 'fii' ? fiiCVM[t] : null;
     const p = preco || (closes.at(-1) || 0);
-    const x = { c: cls, n: nome };
+    const x = { c: cls, n: (fii && fii.nome) || nome };
     if (p) x.p = +p.toFixed(2);
     if (fii) { x.seg = fii.seg; x.vp = fii.vp; x.pvp = p ? +(p / fii.vp).toFixed(3) : null; if (fii.cot) x.cot = fii.cot; x.ref = fii.ref; }
     if (somaP && p) x.dy = +(somaP / p).toFixed(4);

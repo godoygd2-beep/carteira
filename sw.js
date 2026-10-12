@@ -1,6 +1,6 @@
 /* Modo offline: guarda o app no aparelho para abrir sem internet.
    Para publicar uma versão nova, mude VERSION; o app mostra "Tem uma versão nova do app". */
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const CORE = 'mc-core-' + VERSION;
 const RUNTIME = 'mc-runtime';
 const DADOS = 'mc-dados';
@@ -9,7 +9,7 @@ const FIREBASE = 'https://www.gstatic.com/firebasejs/12.19.0/';
 const FILES = [
   './', 'index.html', 'style.css', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
-  'src/main.js', 'src/config.js', 'src/ui.js', 'src/calc.js', 'src/util.js', 'src/store.js', 'src/mercado.js', 'src/listas.js'
+  'src/vendor/lightweight-charts.js', 'src/main.js', 'src/config.js', 'src/ui.js', 'src/calc.js', 'src/util.js', 'src/store.js', 'src/mercado.js', 'src/listas.js'
 ];
 const REMOTE = ['firebase-app.js', 'firebase-auth.js', 'firebase-firestore.js'].map(f => FIREBASE + f);
 

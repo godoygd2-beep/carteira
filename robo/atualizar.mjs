@@ -13,6 +13,7 @@
 
    Cada fonte é independente: se uma falhar, o robô mantém o último valor publicado. */
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { historico, cvmFII, gerarAnalise } from './analise.mjs';
 
 const OUT = process.env.SAIDA || 'saida/dados';
 const SITE = process.env.SITE_URL || (process.env.GITHUB_REPOSITORY ? 'https://' + process.env.GITHUB_REPOSITORY.split('/')[0].toLowerCase() + '.github.io/' + process.env.GITHUB_REPOSITORY.split('/')[1] + '/' : '');
@@ -327,6 +328,19 @@ for (const [nome, fn, precisa] of tarefas) {
   if (!precisa && !FORCAR.includes(nome)) { log(nome + ': ainda atual, pulando'); continue; }
   try { await fn(); } catch (e) { erros.push(nome); log('ERRO em ' + nome + ': ' + e.message); }
 }
+/* ---------- Aba Análise: histórico de preços, dados da CVM e indicadores ---------- */
+try {
+  const CACHE = process.env.CACHE_DIR || 'cache';
+  const H = await historico(ativos, { log, sonda, forcar: FORCAR.includes('historico'), agora });
+  let fc = null; try { fc = JSON.parse(await readFile(CACHE + '/cvm.json', 'utf8')); } catch (e) { /* ainda não tem */ }
+  if (!fc || velho(fc.ts, 20) || FORCAR.includes('cvm')) {
+    try { const d = await cvmFII({ log, sonda, agora }); if (Object.keys(d).length) { fc = { ts: agora.toISOString(), d }; await writeFile(CACHE + '/cvm.json', JSON.stringify(fc)); } }
+    catch (e) { erros.push('cvm'); log('ERRO em cvm: ' + e.message); }
+  }
+  await mkdir(OUT, { recursive: true });
+  await gerarAnalise(H, mk, ativos, fc ? fc.d : {}, OUT, { log, agora });
+  mk.atualizado.analise = agora.toISOString();
+} catch (e) { erros.push('analise'); log('ERRO em analise: ' + e.message); }
 mk.atualizado.robo = agora.toISOString();
 // mesmo ativo, tipo e data de pagamento vindo do FundosNET e da B3: fica só o da B3
 { const b3 = new Set((mk.anuncios || []).filter(a => a.o).map(a => a.t + '|' + a.tipo + '|' + a.pag));

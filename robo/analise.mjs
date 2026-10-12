@@ -128,7 +128,7 @@ export async function cvmFII(opts) {
           const cnpjA = g('cnpj'), refA = g('data_referencia');
           const total = n('total_investido') || 0; if (!(total > 0)) continue;
           const papel = ['cri', 'cri_cra', 'lci', 'lci_lca', 'lig', 'letras_hipotecarias', 'certificados_deposito_valores_mobiliarios', 'debentures', 'notas_promissorias'].reduce((t, k) => t + n(k), 0);
-          const comp = { total, papel, imoveis: n('direitos_bens_imoveis'), fii: n('fii'), ref: refA };
+          const comp = { total, papel, imoveis: n('direitos_bens_imoveis') + n('acoes_sociedades_atividades_fii') + n('cotas_sociedades_atividades_fii'), fii: n('fii'), ref: refA };
           if (!apDe[cnpjA] || refA > apDe[cnpjA].ref) apDe[cnpjA] = comp;
           continue;
         }
@@ -151,7 +151,7 @@ export async function cvmFII(opts) {
   for (const [cnpj, d] of Object.entries(ultimo)) {
     const isin = isinDe[cnpj] || ''; if (!/^BR[A-Z]{4}CTF/.test(isin)) continue;
     const t = isin.slice(2, 6) + '11';
-    out[t] = { vp: +d.vp.toFixed(4), cot: d.cot || null, seg: tipoFII(segDe[cnpj], apDe[cnpj]), nome: nomeFII(nomeDe[cnpj]), ref: d.ref };
+    out[t] = { vp: +d.vp.toFixed(4), cot: d.cot || null, seg: tipoFII(segDe[cnpj], apDe[cnpj], nomeDe[cnpj]), nome: nomeFII(nomeDe[cnpj]), ref: d.ref };
   }
   log('CVM: ' + Object.keys(out).length + ' FIIs com valor patrimonial');
   if (sonda) sonda('CVM tipos', ['MXRF11', 'HGLG11', 'KNCR11', 'KNRI11', 'XPML11', 'BCFF11', 'HFOF11', 'VISC11', 'CPTS11', 'BTLG11'].map(t => t + ': ' + (out[t] ? out[t].seg + ' · ' + out[t].nome : '—')).join('\n'));
@@ -160,8 +160,14 @@ export async function cvmFII(opts) {
 
 /* Tipo do FII pela carteira declarada à CVM: papel (CRI/LCI), fundo de fundos, tijolo (segmento) ou híbrido */
 const TIJOLO = ['Logística', 'Shoppings', 'Escritórios', 'Lajes Corporativas', 'Residencial', 'Hospital', 'Varejo', 'Hotel', 'Agências', 'Educacional'];
-function tipoFII(seg, ap) {
+function tipoFII(seg, ap, nome) {
   seg = (seg || '').trim();
+  if (!TIJOLO.includes(seg)) { // segmento genérico na CVM: tenta pelo nome do fundo
+    const n = nome || '';
+    if (/log[ií]st|\blog\b/i.test(n)) seg = 'Logística';
+    else if (/shopping|malls?\b/i.test(n)) seg = 'Shoppings';
+    else if (/corporat|lajes|escrit|office/i.test(n)) seg = 'Escritórios';
+  }
   if (ap && ap.total > 0) {
     if (ap.fii / ap.total > 0.5) return 'Fundo de fundos';
     if (ap.papel / ap.total > 0.6) return 'Papel (recebíveis)';
@@ -173,6 +179,7 @@ function tipoFII(seg, ap) {
 }
 function nomeFII(n) {
   n = (n || '').replace(/^(FII|FUNDO DE INVESTIMENTO IMOBILI[AÁ]RIO)\s*[-–]?\s*/i, '').replace(/\s*-?\s*(FII|FUNDO DE INVESTIMENTO IMOBILI[AÁ]RIO).*$/i, '').replace(/ RESPONSABILIDADE LIMITADA/i, '').trim();
+  n = n.replace(/\s+(RL|R\.L\.|RESP\.? LTDA\.?)$/i, '');
   return n.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
 }
 
@@ -222,9 +229,9 @@ export async function gerarAnalise(H, mk, ativos, fiiCVM, saida, opts) {
     const closes = rows.map(r => r[4] / 100);
     const liq = recentes.slice(-30).filter(r => r[5] > 0);
     const P = (prov[t] || []).filter(a => a.pag > ini12 && a.pag <= agora.toISOString().slice(0, 10));
-    // meses com pagamento entre os 12 meses-calendário anteriores ao mês atual
-    const mAtual = agora.toISOString().slice(0, 7), m12 = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth() - 12, 1)).toISOString().slice(0, 7);
-    const meses = new Set((prov[t] || []).filter(a => a.pag.slice(0, 7) >= m12 && a.pag.slice(0, 7) < mAtual).map(a => a.pag.slice(0, 7)));
+    // meses com pagamento (feito ou já anunciado) nos últimos 12 meses-calendário, contando o atual
+    const mAtual = agora.toISOString().slice(0, 7), m12 = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth() - 11, 1)).toISOString().slice(0, 7);
+    const meses = new Set((prov[t] || []).filter(a => a.pag.slice(0, 7) >= m12 && a.pag.slice(0, 7) <= mAtual).map(a => a.pag.slice(0, 7)));
     const somaP = P.reduce((s, a) => s + a.v, 0);
     const ultP = [...(prov[t] || [])].filter(a => a.pag <= agora.toISOString().slice(0, 10)).sort((a, b) => a.pag < b.pag ? -1 : 1).at(-1);
     const fii = cls === 'fii' ? fiiCVM[t] : null;

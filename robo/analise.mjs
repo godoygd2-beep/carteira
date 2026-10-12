@@ -116,16 +116,18 @@ export async function cvmFII(opts) {
     catch (e) { log('CVM ' + a + ': ' + e.message); continue; }
     const arqs = await listaZip(zip);
     for (const arq of arqs) {
-      const tipo = /geral/i.test(arq) ? 'geral' : /complemento/i.test(arq) ? 'comp' : null; if (!tipo) continue;
+      const tipo = /geral/i.test(arq) ? 'geral' : /complemento/i.test(arq) ? 'comp' : /ativo/i.test(arq) ? 'ap' : null; if (!tipo) continue;
       let cab = null;
       for await (const l of linhasZip(zip, arq)) {
         const c = csvLinha(l);
         if (!cab) { cab = c.map(x => x.toLowerCase()); if (sonda) sonda('CVM ' + arq, cab.join(' | ')); continue; }
+        if (tipo === 'ap') { if (sonda && !ultimo.__ap && /MXRF|maxi renda/i.test(l)) { ultimo.__ap = 1; sonda('CVM ativo MXRF', l); } continue; }
         const g = nome => { const i = cab.findIndex(h => h.includes(nome)); return i >= 0 ? c[i] : ''; };
         const cnpj = g('cnpj'), ref = g('data_referencia');
         if (tipo === 'geral') {
           const isin = g('isin'); if (isin) isinDe[cnpj] = isin.toUpperCase();
           const seg = g('segmento'); if (seg) segDe[cnpj] = seg;
+          if (sonda && /MAXI RENDA/i.test(l) && !segDe.__s) { segDe.__s = 1; sonda('CVM geral MXRF', l); }
           nomeDe[cnpj] = g('nome');
         } else {
           const vp = parseFloat((g('valor_patrimonial_cotas') || g('valor_patrimonial_cota')).replace(',', '.'));

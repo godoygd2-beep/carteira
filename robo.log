@@ -1,0 +1,151 @@
+[12:35:47] dados anteriores: ok
+--- SONDA brapi v2 tickers ---
+{
+ "pagination": {
+  "page": 1,
+  "limit": 100,
+  "totalItems": 2377,
+  "totalPages": 24,
+  "hasNextPage": true
+ },
+ "primeiro": {
+  "symbol": "03BK11",
+  "name": "03BK11",
+  "longName": "Galapagos Teva ITBR Tesouro IPCA 3 Anos Fundo de Indice ETF",
+  "assetType": "fund",
+  "subType": "etf",
+  "exchange": "B3",
+  "currency": "BRL",
+  "sector": "Miscellaneous",
+  "subsector": null,
+  "isActive": true,
+  "logoUrl": "https://icons.brapi.dev/icons/03BK11.svg",
+  "quote": {
+   "lastPrice": 53.24,
+   "changePercent": -0.22,
+   "volume": 23746,
+   "marketCap": null
+  }
+ }
+}
+[12:35:49] B3: 2377 preços, 1957 ações/ETFs/BDRs, 389 FIIs
+[12:35:50] Cripto: 31 moedas, USDT/BRL 5.0499
+[12:35:52] Dólar: 5.0096
+--- SONDA BCB CDI ---
+[
+ {
+  "data": "08/10/2026",
+  "valor": "0.050788"
+ },
+ {
+  "data": "09/10/2026",
+  "valor": "0.050788"
+ },
+ {
+  "data": "13/10/2026",
+  "valor": "0.050788"
+ }
+]
+--- SONDA BCB IPCA ---
+[
+ {
+  "data": "01/07/2026",
+  "valor": "0.07"
+ },
+ {
+  "data": "01/08/2026",
+  "valor": "-0.32"
+ },
+ {
+  "data": "01/09/2026",
+  "valor": "0.82"
+ }
+]
+[12:36:05] BCB: 949 dias de CDI (último 2026-10-13), 105 meses de IPCA
+--- SONDA Tesouro CSV ---
+Tipo Titulo;Data Vencimento;Data Base;Taxa Compra Manha;Taxa Venda Manha;PU Compra Manha;PU Venda Manha;PU Base Manha
+Tesouro Selic;01/03/2031;13/10/2026;0,09;0,10;20001,60;19982,63;19982,63
+Tesouro Selic;01/03/2028;13/10/2026;0,03;0,04;20071,18;20058,13;20058,13
+[12:36:25] Tesouro: 58 títulos (preços de 2026-10-13)
+--- SONDA FundosNET lista ---
+{
+ "total": 10,
+ "filtrados": 10,
+ "primeiro": {
+  "altaPrioridade": false,
+  "analisado": "N",
+  "arquivoEstruturado": " ",
+  "assuntos": null,
+  "categoriaDocumento": "Aviso aos Cotistas - Estruturado",
+  "cnpjAdministrador": null,
+  "cnpjFundo": null,
+  "codSegNegociacao": null,
+  "dataEntrega": "13/10/2026 19:21",
+  "dataReferencia": "13/10/2026",
+  "dda": null,
+  "descricaoFundo": "MAG MULTIESTRATÉGIA CLASSE DE INVESTIMENTO IMOBILIÁRIO RESPONSABILIDADE LIMITADA",
+  "descricaoModalidade": "Apresentação",
+  "descricaoStatus": "Ativo com visualização",
+  "especieDocumento": "",
+  "formatoDataReferencia": "3",
+  "formatoEstruturaDocumento": null,
+  "fundoOuClasse": "Classe",
+  "id": 1348092,
+  "idEntidadeGerenciadora": null,
+  "idFundo": null,
+  "idSelectItemConvenio": 0,
+  "idSelectNotificacaoConvenio": null,
+  "idTemplate": 0,
+  "indicadorFundoAtivoB3": false,
+  "informacoesAdicionais": "FII MAGM;",
+  "modalidade": "AP",
+  "nomeAdministrador": null,
+  "nomePregao": "FII MAGM",
+  "nomePrimeiraVisualizacao": null,
+  "numeroEmissao": null,
+  "ofertaPublica": null,
+  "situacaoDocumento": "A",
+  "status": "AC",
+  "tipoDocumento": "Rendimentos e Amortizações",
+  "tipoPedido": null,
+  "versao": 1
+ }
+}
+[12:36:26] FundosNET: 10 avisos de rendimento nos últimos 3 dias, 0 novos
+[12:36:26] FundosNET: 0 proventos lidos
+[12:36:26] proventosFII: ainda atual, pulando
+[12:36:26] proventosAcoes: ainda atual, pulando
+[12:36:27] histórico: 0 pregões-ativo novos
+--- SONDA histórico PETR4 ---
+[
+ [
+  20261008,
+  5530,
+  5596,
+  5473,
+  5548,
+  2859255
+ ],
+ [
+  20261009,
+  5545,
+  5680,
+  5510,
+  5600,
+  2793040
+ ],
+ [
+  20261013,
+  5565,
+  5688,
+  5558,
+  5685,
+  2164251
+ ]
+]
+[12:36:28] histórico: 1886 ativos, último pregão 20261013
+[12:36:30] análise: 2346 ativos, 1869 arquivos de histórico
+[12:36:30] resumo: CDI último ["2026-10-13",0.050788], IPCA último ["2026-09",0.82], dólar 5.0096, USDT 5.0499, ITSA4 15.99, MXRF11 9.37, Selic 2031 19982.63, anúncios {"fiiB3":3771,"acao":992,"fundosnet":123}
+[12:36:30] MXRF11: [{"t":"MXRF11","tipo":"Rendimento","com":"2026-07-31","pag":"2026-08-14","v":0.1,"o":"fiiB3"},{"t":"MXRF11","tipo":"Rendimento","com":"2026-08-31","pag":"2026-09-15","v":0.1,"o":"fiiB3"},{"t":"MXRF11","tipo":"Rendimento","com":"2026-09-30","pag":"2026-10-15","v":0.1,"o":"fiiB3"}] · ITSA4: [{"t":"ITSA4","tipo":"JCP","com":"2026-06-18","pag":"2026-08-28","v":0.138,"o":"acao"},{"t":"ITSA4","tipo":"JCP","com":"2026-03-19","pag":"2026-08-28","v":0.116,"o":"acao"},{"t":"ITSA4","tipo":"JCP","com":"2026-08-31","pag":"2026-10-01","v":0.0242425,"o":"acao"}]
+[12:36:30] futuros: 441, tamanhos KB: {"atualizado":0,"precos":33,"tesouro":2,"cripto":0,"cdi":22,"ipca":1,"anuncios":447,"usdtbrl":0,"dolar":0,"fnetLidos":3}
+[12:36:30] gravado: saida/dados (507 KB)

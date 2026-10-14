@@ -130,18 +130,34 @@ export function posTesouro(a) {
 }
 
 /* ---------- CDB: CDI de cada dia útil (Banco Central) ---------- */
+/* Feriados nacionais (dias sem CDI). A série oficial do Banco Central sai no dia útil seguinte;
+   até lá o app estima os dias que faltam com a última taxa publicada (o CDI só muda quando a Selic muda). */
+const FERIADOS = new Set(['2026-01-01', '2026-02-16', '2026-02-17', '2026-04-03', '2026-04-21', '2026-05-01', '2026-06-04', '2026-09-07', '2026-10-12', '2026-11-02', '2026-11-20', '2026-12-25',
+  '2027-01-01', '2027-02-08', '2027-02-09', '2027-03-26', '2027-04-21', '2027-05-27', '2027-09-07', '2027-10-12', '2027-11-02', '2027-11-15', '2027-12-25',
+  '2028-01-01', '2028-02-28', '2028-02-29', '2028-04-14', '2028-04-21', '2028-05-01', '2028-06-15', '2028-09-07', '2028-10-12', '2028-11-02', '2028-11-15', '2028-11-20', '2028-12-25']);
+export const diaUtil = d => { const w = parse(d).getDay(); return w !== 0 && w !== 6 && !FERIADOS.has(d); };
+export function diaUtilAnterior(d) { let x = addDays(d, -1); while (!diaUtil(x)) x = addDays(x, -1); return x; }
+let serieCache = { k: null, s: [] };
+function serie() { // série oficial + dias úteis estimados até ontem
+  const of = S.mk.cdi || [], k = of.length + '|' + (of.length ? of[of.length - 1][0] : '') + '|' + S.hoje;
+  if (serieCache.k === k) return serieCache.s;
+  const s = of.slice();
+  if (s.length) { const taxa = s[s.length - 1][1]; for (let d = addDays(s[s.length - 1][0], 1); d < S.hoje; d = addDays(d, 1)) if (diaUtil(d)) s.push([d, taxa, true]); }
+  serieCache = { k, s }; return s;
+}
 function idxDe(d) { // primeira posição da série com data >= d
-  const s = S.mk.cdi; let lo = 0, hi = s.length;
+  const s = serie(); let lo = 0, hi = s.length;
   while (lo < hi) { const m = (lo + hi) >> 1; if (s[m][0] < d) lo = m + 1; else hi = m; }
   return lo;
 }
 /* Fator do CDI de "de" (inclusive) até "ate" (exclusive), a pct% do CDI */
 export function fatorCDI(de, ate, pct) {
-  const s = S.mk.cdi; let f = 1;
+  const s = serie(); let f = 1;
   for (let i = idxDe(de); i < s.length && s[i][0] < ate; i++) f *= 1 + s[i][1] / 100 * pct / 100;
   return f;
 }
-export function ultimoDiaCDI() { const s = S.mk.cdi; const i = idxDe(S.hoje) - 1; return i >= 0 ? s[i][0] : null; }
+export function ultimoDiaCDI() { const s = serie(); const i = idxDe(S.hoje) - 1; return i >= 0 ? s[i][0] : null; }
+export const cdiEstimado = d => { const s = serie(); const i = idxDe(d); return !!(s[i] && s[i][0] === d && s[i][2]); };
 
 function lotNet(L, ate) {
   const g = L.valor * fatorCDI(L.data, ate, L.pct), y = g - L.valor, d = daysBetween(L.data, ate);
@@ -171,8 +187,12 @@ export function posCDB(a) {
   const v = cdbValor(a, S.hoje);
   const d1 = ultimoDiaCDI();
   const hoje = d1 ? cdbValor(a, S.hoje, d1).liq - cdbValor(a, d1, d1).liq : 0;
+  // rendimento líquido do mês: valor de hoje − valor no fim do mês passado − aportes do mês + resgates do mês
+  const ini = S.hoje.slice(0, 8) + '01', fimAnt = addDays(ini, -1);
+  let fluxo = 0; for (const o of opsOf('cdb', a)) if (o.data >= ini && o.data <= S.hoje) fluxo += o.tipo === 'aporte' ? o.valor : -o.valor;
+  const mes = v.liq - cdbValor(a, ini, fimAnt).liq - fluxo;
   return Object.assign(v, { valor: v.bruto, custo: v.aplicado, res: v.bruto - v.aplicado, resPct: v.aplicado ? v.bruto / v.aplicado - 1 : 0,
-    acum: v.liq - v.aplicado, liqPct: v.aplicado ? v.liq / v.aplicado - 1 : 0, aa: anual(v.aplicado, v.liq, v.avgDays), hoje, diaHoje: d1, taxas: 0, cotado: true });
+    acum: v.liq - v.aplicado, liqPct: v.aplicado ? v.liq / v.aplicado - 1 : 0, aa: anual(v.aplicado, v.liq, v.avgDays), hoje, diaHoje: d1, mes, estimado: d1 ? cdiEstimado(d1) : false, taxas: 0, cotado: true });
 }
 function anual(base, liq, dias) { if (!base || dias < 30) return null; return Math.pow(liq / base, 365 / dias) - 1; }
 

@@ -157,6 +157,16 @@ async function entrar() {
   if (b) { b.disabled = false; b.querySelector('span').textContent = 'Entrar com Google'; }
 }
 
+/* "Rendeu ontem" / "Rendeu na sexta (09/10)" / "Rendeu em 12/10" */
+function rotuloDia(d) {
+  if (!d) return 'Rendeu no dia';
+  const ontem = iso(new Date(parse(S.hoje).getTime() - 864e5));
+  if (d === ontem) return 'Rendeu ontem';
+  const dif = daysBetween(d, S.hoje);
+  if (dif <= 6) return 'Rendeu ' + ['no domingo', 'na segunda', 'na terça', 'na quarta', 'na quinta', 'na sexta', 'no sábado'][parse(d).getDay()] + ' (' + fmtDM(d) + ')';
+  return 'Rendeu em ' + fmtDM(d);
+}
+
 /* ---------- Telas ---------- */
 function render() {
   if (!root) return;
@@ -213,11 +223,11 @@ function vCarteira() {
         '<span class="main"><span class="t">' + esc(p.ativo) + '</span><span class="s s1 num">' + l1 + '</span><span class="s s1 num">' + l2 + '</span></span>' +
         '<span class="r num"><span class="v">' + rv + '</span><span class="s">' + rs + '</span></span></button>';
       if (c === 'cdb' && p.diaHoje) {
-        h += '<div class="strip"><div><span>Rendeu em ' + fmtDM(p.diaHoje) + '</span><b class="' + cls(p.hoje) + '">' + brl(p.hoje, true) + '</b></div>' +
-          '<div><span>Rendimento acumulado</span><b class="' + cls(p.acum) + '">' + brl(p.acum, true) + '</b></div></div>';
+        h += '<div class="strip"><div><span>' + rotuloDia(p.diaHoje) + '</span><b class="' + cls(p.hoje) + '">' + brl(p.hoje, true) + '</b></div>' +
+          '<div><span>Rendeu em ' + MESES_LONGOS[+S.hoje.slice(5, 7) - 1] + '</span><b class="' + cls(p.mes) + '">' + brl(p.mes, true) + '</b></div></div>';
       }
     }
-    h += '</div>' + (c === 'cdb' ? '<p class="note">Valores já descontados de IR e IOF.</p>' : '') + '</section>';
+    h += '</div>' + (c === 'cdb' ? '<p class="note">Valores já descontados de IR e IOF.' + (C.items.some(p => p.estimado) ? ' O CDI de ' + fmtDM(C.items[0].diaHoje) + ' ainda não foi publicado pelo Banco Central; o app usou a última taxa (ajusta sozinho quando sair).' : '') + '</p>' : '') + '</section>';
   }
 
   const rf = [...k.classes.cdb.items, ...k.classes.tesouro.items].filter(p => p.aa != null).sort((a, b) => b.aa - a.aa);
@@ -376,8 +386,9 @@ function detalhe(c, a) {
     const p = pos(c, a); let h = '';
     if (c === 'cdb') {
       h += kv([['Rende', pctCDI(p.pct)], ['Aplicado', brl(p.aplicado)], ['Valor bruto', brl(p.bruto)], ['IR + IOF', brl(-(p.ir + p.iof))],
-        ['Líquido', brl(p.liq)], [p.diaHoje ? 'Rendeu em ' + fmtDM(p.diaHoje) : 'Rendeu no dia', brl(p.hoje, true), cls(p.hoje)],
-        ['Rendimento acumulado', brl(p.acum, true), cls(p.acum)], ['Líquido ao ano', p.aa == null ? '—' : pct(p.aa, false)]]);
+        ['Líquido', brl(p.liq)], [p.diaHoje ? rotuloDia(p.diaHoje) : 'Rendeu no dia', brl(p.hoje, true), cls(p.hoje)],
+        ['Rendeu em ' + MESES_LONGOS[+S.hoje.slice(5, 7) - 1], brl(p.mes, true), cls(p.mes)], ['Rendimento acumulado', brl(p.acum, true), cls(p.acum)],
+        ['Líquido ao ano', p.aa == null ? '—' : pct(p.aa, false)], ['', '']]);
       h += '<p class="note">IR de cada aporte pelo tempo aplicado: 22,5% até 180 dias, 20% até 360, 17,5% até 720 e 15% depois disso. IOF só nos primeiros 30 dias. Resgates saem dos aportes mais antigos primeiro. CDI oficial de cada dia útil (Banco Central).</p>';
       h += '<div class="sec-h" style="margin-top:16px"><h2>Aportes em aberto</h2></div><div class="list">';
       p.lots.forEach(L => { const d = daysBetween(L.data, S.hoje); h += '<div class="row"><span class="main"><span class="t">' + fmtDate(L.data) + '</span><span class="s">' + d + ' dias · IR ' + pct(irRate(d), false) + '</span></span><span class="r num v">' + brl(L.valor) + '</span></div>'; });

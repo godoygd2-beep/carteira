@@ -317,7 +317,8 @@ const tarefas = [
   ['acoes', () => acoes(mk, ativos), true],
   ['cripto', () => cripto(mk), true],
   ['dolar', () => dolar(mk), true],
-  ['bcb', () => bcb(mk), velho(mk.atualizado.cdi, 6)],
+  // CDI: o Banco Central publica a taxa de cada dia útil no dia seguinte; busca de novo até chegar a de ontem
+  ['bcb', () => bcb(mk), velho(mk.atualizado.cdi, 6) || ((mk.cdi || []).length && mk.cdi[mk.cdi.length - 1][0] < iso(new Date(agora - 864e5)) && velho(mk.atualizado.cdi, 0.4))],
   ['tesouro', () => tesouro(mk, ativos), velho(mk.atualizado.tesouro, 20)],
   ['fii', () => proventosFII(mk), true],
   ['proventosFII', () => proventosFIIb3(mk, ativos), velho(mk.atualizado.proventosFII, 20)],

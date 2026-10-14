@@ -3,11 +3,14 @@ name: Dados de mercado e publicação
 # Atualiza os dados de mercado e publica o app no GitHub Pages.
 # - dias úteis, a cada 30 minutos das 10h às 18h30 (Brasília): preços da B3, cripto, dólar e avisos de FIIs
 # - todo dia às 7h: também CDI, IPCA, Tesouro e proventos das empresas
+# - dias úteis às 8h30 e 9h15: de novo, para pegar o CDI de ontem assim que o Banco Central publicar
 # - a cada envio de código: publica o app de novo
 on:
   schedule:
     - cron: '*/30 13-21 * * 1-5'
     - cron: '0 10 * * *'
+    - cron: '30 11 * * 1-5'
+    - cron: '15 12 * * 1-5'
   push:
     branches: [main]
   workflow_dispatch:

@@ -96,7 +96,7 @@ function fluxo(E, T, fim, ini, ordem) { // DRE ou DFC de um período
 }
 function itensDRE(dre) {
   if (!dre) return null;
-  return { receita: val(dre, '3.01'), ebit: val(dre, '3.05'), lucro: lucroDe(dre), fin: ehFinanceira(dre) };
+  return { receita: val(dre, '3.01'), ebit: val(dre, '3.05'), lucro: lucroDe(dre), fin: ehFinanceira(dre), ds: dre['3.01'] ? dre['3.01'][1] : '' };
 }
 function itensDFC(dfc) {
   if (!dfc) return null;
@@ -147,7 +147,7 @@ function montarEmpresa(D, I) {
     const fAtu = itensDFC(fluxo(I, 'DFC', fimItr, ini, 'U')), fPas = itensDFC(fluxo(I, 'DFC', ant, iniAnt, 'P'));
     const base = anos[String(+y - 1)];
     if (atu && pas && base && +y - 1 === ult.ano) {
-      ttm = { receita: soma(base.receita, atu.receita, pas.receita), ebit: soma(base.ebit, atu.ebit, pas.ebit), lucro: soma(base.lucro, atu.lucro, pas.lucro), fin: atu.fin };
+      ttm = { receita: soma(base.receita, atu.receita, pas.receita), ebit: soma(base.ebit, atu.ebit, pas.ebit), lucro: soma(base.lucro, atu.lucro, pas.lucro), fin: atu.fin, ds: atu.ds };
       if (fAtu && fPas && base.fco != null) Object.assign(ttm, { fco: soma(base.fco, fAtu.fco, fPas.fco), dep: soma(base.dep, fAtu.dep, fPas.dep), capex: soma(base.capex, fAtu.capex, fPas.capex) });
       else Object.assign(ttm, { fco: null, dep: null, capex: null });
       ref = fimItr; fonte = '12m';
@@ -164,7 +164,8 @@ function indicadores(e, mcap, setorFin) {
   const t = e.ttm;
   // bancos, seguradoras e holdings: margem, dívida e caixa não se medem como numa empresa comum
   const holding = t.receita == null || t.receita <= 0 || (t.lucro > 0 && t.lucro > 0.8 * t.receita);
-  const fin = !!t.fin || !!setorFin || holding;
+  // setor "Finance" da brapi inclui construtoras, shoppings e locadoras: só conta se a receita não for venda de bens/serviços
+  const fin = !!t.fin || holding || (!!setorFin && !/venda de bens|servi[cç]os|receita l[ií]quida/i.test(t.ds || ''));
   const ebitda = t.ebit != null ? t.ebit + (t.dep || 0) : null;
   const fcl = t.fco != null ? t.fco + (t.capex || 0) : null;
   const anosLucro = e.anos.slice(-5).filter(a => a.lucro > 0).length;
@@ -231,13 +232,14 @@ export async function fundamentos(ativos, mk, opts) {
   }
   const empresas = Object.assign({}, dfp.emp, empI);
   const out = { atualizado: agora.toISOString(), empresas: {}, tickers: {} };
-  let n = 0;
+  let n = 0; const dsDe = {};
   for (const [cd, info] of Object.entries(empresas)) {
     const ts = [...(tickersDe[info.cnpj] || [])]; if (!ts.length) continue;
     const e = montarEmpresa(dfp.D[cd], I[cd]); if (!e) continue;
     // valor de mercado: soma das classes (preço × ações) não está disponível; usa o maior valor de mercado informado entre os códigos
     const mcap = Math.max(0, ...ts.map(t => (mk.mcap || {})[t] || 0)) || null;
     const ind = indicadores(e, mcap, ts.some(t => (mk.setor || {})[t] === 'Finance'));
+    dsDe[cd] = e.ttm.ds;
     out.empresas[cd] = {
       n: info.nome, ref: e.ref, f: e.fonte, ind, mc: mcap,
       h: { a: e.anos.map(x => x.ano), r: e.anos.map(x => x.receita), l: e.anos.map(x => x.lucro), dl: e.anos.map(x => x.divLiq ?? null), eb: e.anos.map(x => x.ebit != null ? x.ebit + (x.dep || 0) : null) }
@@ -246,7 +248,7 @@ export async function fundamentos(ativos, mk, opts) {
     n++;
   }
   if (sonda) for (const t of ['PETR4', 'WEGE3', 'ITUB4', 'BBAS3', 'VALE3', 'TAEE11']) { const cd = out.tickers[t]; sonda('fundamentos ' + t, cd ? out.empresas[cd] : 'sem dados'); }
-  if (sonda) { const cont = {}; for (const v of Object.values(mk.setor || {})) cont[v] = (cont[v] || 0) + 1; sonda('setores', cont); sonda('financeiras', Object.entries(out.tickers).filter(([t, cd]) => out.empresas[cd].ind.fin).map(([t]) => t).join(' ')); }
+  if (sonda) { const cont = {}; for (const v of Object.values(mk.setor || {})) cont[v] = (cont[v] || 0) + 1; sonda('setores', cont); sonda('financeiras', Object.entries(out.tickers).filter(([t, cd]) => out.empresas[cd].ind.fin).map(([t]) => t).join(' ')); sonda('receita 3.01 das financeiras', [...new Set(Object.entries(out.tickers).filter(([t]) => (mk.setor || {})[t] === 'Finance').map(([t, cd]) => t + ': ' + (dsDe[cd] || '')))].slice(0, 90)); }
   log('Fundamentos: ' + n + ' empresas, ' + Object.keys(out.tickers).length + ' códigos');
   return out;
 }

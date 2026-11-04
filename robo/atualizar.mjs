@@ -14,6 +14,7 @@
    Cada fonte é independente: se uma falhar, o robô mantém o último valor publicado. */
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { historico, cvmFII, gerarAnalise } from './analise.mjs';
+import { fundamentos } from './fundamentos.mjs';
 
 const OUT = process.env.SAIDA || 'saida/dados';
 const SITE = process.env.SITE_URL || (process.env.GITHUB_REPOSITORY ? 'https://' + process.env.GITHUB_REPOSITORY.split('/')[0].toLowerCase() + '.github.io/' + process.env.GITHUB_REPOSITORY.split('/')[1] + '/' : '');
@@ -62,7 +63,7 @@ async function anterior() {
 
 /* ---------- B3: preços e lista (brapi) ---------- */
 async function acoes(mk, ativos) {
-  const precos = {}, acao = [], fii = [];
+  const precos = {}, acao = [], fii = []; mk.mcap = {};
   let page = 1, total = 0;
   for (;;) {
     const j = await get('https://brapi.dev/api/v2/tickers?limit=100&page=' + page + '&sortBy=symbol&sortOrder=asc');
@@ -71,6 +72,7 @@ async function acoes(mk, ativos) {
       const s = it.symbol; if (!s) continue;
       const p = it.quote && it.quote.lastPrice;
       if (p > 0) precos[s] = +(+p).toFixed(4);
+      if (it.quote && it.quote.marketCap > 0) mk.mcap[s] = it.quote.marketCap;
       if (it.isActive === false) continue;
       const nome = (it.name || it.longName || '').trim();
       const sub = it.subType || '', tipo = it.assetType || '';
@@ -342,6 +344,19 @@ try {
   await gerarAnalise(H, mk, ativos, fc ? fc.d : {}, OUT, { log, agora });
   mk.atualizado.analise = agora.toISOString();
 } catch (e) { erros.push('analise'); log('ERRO em analise: ' + e.message); }
+
+/* ---------- Fundamentos das empresas (balanços da CVM), uma vez por dia ---------- */
+try {
+  const CACHE = process.env.CACHE_DIR || 'cache';
+  let F = null; try { F = JSON.parse(await readFile(CACHE + '/fund.json', 'utf8')); } catch (e) { /* ainda não tem */ }
+  if (!F || velho(F.atualizado, 20) || FORCAR.includes('fundamentos')) {
+    if (!mk.mcap || !Object.keys(mk.mcap).length) throw new Error('sem valor de mercado nesta rodada');
+    F = await fundamentos(ativos, mk, { log, sonda, agora, forcar: FORCAR.includes('fundamentos') });
+    if (Object.keys(F.empresas).length > 50) await writeFile(CACHE + '/fund.json', JSON.stringify(F));
+  }
+  if (F) { await mkdir(OUT, { recursive: true }); await writeFile(OUT + '/fundamentos.json', JSON.stringify(F)); mk.atualizado.fundamentos = F.atualizado; }
+} catch (e) { erros.push('fundamentos'); log('ERRO em fundamentos: ' + e.message); }
+delete mk.mcap;
 mk.atualizado.robo = agora.toISOString();
 // mesmo ativo, tipo e data de pagamento vindo do FundosNET e da B3: fica só o da B3
 { const b3 = new Set((mk.anuncios || []).filter(a => a.o).map(a => a.t + '|' + a.tipo + '|' + a.pag));

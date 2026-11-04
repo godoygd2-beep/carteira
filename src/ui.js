@@ -62,6 +62,7 @@ export function iniciarUI(el, st, opts) {
     if (e.target.closest('#login')) { entrar(); return; }
     const ed = e.target.closest('[data-edit]'); if (ed) { editar(ed.dataset.edit); return; }
     const fi = e.target.closest('[data-ficha]'); if (fi) { ficha(fi.dataset.ficha); return; }
+    const ps = e.target.closest('[data-preset]'); if (ps) { escolherPreset(ps.dataset.preset); return; }
     const rp = e.target.closest('[data-rp]'); if (rp) { resPeriodo = rp.dataset.rp; render(); return; }
     const ac = e.target.closest('[data-acls]'); if (ac) { analiseCls = ac.dataset.acls; render(); return; }
     if (e.target.closest('#a-crit')) { criterios(); return; }
@@ -778,9 +779,22 @@ let analiseCls = 'fii', analiseLimite = 30, analiseQ = '';
 const AN = { dados: null, carregando: false, erro: false };
 const CRIT_PADRAO = {
   fii: { pvpMax: '1,00', dyMin: '10', mesesMin: '12', liqMin: '1', cotMin: '10000', ifrMax: '', seg: '', ordem: 'dy' },
-  acao: { dyMin: '6', mesesMin: '1', liqMin: '2', ifrMax: '', ordem: 'dy' }
+  acao: { preset: 'qualidade' }
 };
-const critDe = c => Object.assign({}, CRIT_PADRAO[c], ((app.settings.criterios || {})[c]) || {});
+/* Filtros prontos para ações (longo prazo) */
+const CAMPOS_ACAO = ['roeMin', 'mlMin', 'anosMin', 'cRecMin', 'dleMax', 'lcMin', 'fcoMin', 'fclPos', 'plMax', 'pvpMax', 'evMax', 'dyMin', 'payMin', 'payMax', 'mesesMin', 'liqMin', 'ifrMax'];
+const PRESETS = {
+  qualidade: { nome: 'Qualidade', roeMin: '15', mlMin: '10', anosMin: '5', dleMax: '2', fcoMin: '0,8', liqMin: '2', ordem: 'roe' },
+  dividendos: { nome: 'Dividendos sólidos', dyMin: '6', payMin: '30', payMax: '80', anosMin: '5', dleMax: '2,5', fclPos: 'sim', liqMin: '2', ordem: 'dy' },
+  valor: { nome: 'Valor', plMax: '10', evMax: '8', dleMax: '2,5', anosMin: '4', liqMin: '2', ordem: 'pl' }
+};
+function critDe(c) {
+  const salvo = ((app.settings.criterios || {})[c]) || {};
+  if (c === 'fii') return Object.assign({}, CRIT_PADRAO.fii, salvo);
+  const preset = salvo.preset || 'qualidade';
+  if (preset !== 'meus') return Object.assign({ preset }, PRESETS[preset] || PRESETS.qualidade);
+  return Object.assign({ ordem: 'dy' }, salvo);
+}
 
 async function carregarAnalise() {
   if (AN.dados || AN.carregando) return;
@@ -790,6 +804,7 @@ async function carregarAnalise() {
     if (!r.ok) throw new Error('http');
     AN.dados = await r.json();
     AN.med = medianas(AN.dados.ativos);
+    try { const f = await fetch('dados/fundamentos.json', { cache: 'no-cache' }); if (f.ok) { AN.fund = await f.json(); AN.medF = medianasF(AN.fund); } } catch (e) { /* sem fundamentos */ }
   } catch (e) { AN.erro = true; }
   AN.carregando = false;
   if (tab === 'analise') render();
@@ -806,6 +821,27 @@ function medianas(A) { // por segmento de FII (só os com alguma liquidez) e par
   for (const [k, v] of Object.entries(seg)) out.seg[k] = { dy: mediana(v.dy), pvp: mediana(v.pvp), n: v.dy.length };
   return out;
 }
+/* ---------- Fundamentos (balanços da CVM) ---------- */
+const fundDe = t => { const F = AN.fund; if (!F) return null; const cd = F.tickers[t]; return cd ? F.empresas[cd] : null; };
+function medianasF(F) {
+  const v = {}; for (const e of Object.values(F.empresas)) for (const [k, x] of Object.entries(e.ind)) if (typeof x === 'number') (v[k] ||= []).push(x);
+  const out = {}; for (const [k, l] of Object.entries(v)) out[k] = mediana(k === 'pl' || k === 'evEbit' || k === 'pvp' ? l.filter(x => x > 0) : l);
+  return out;
+}
+// cor de cada indicador: 'ok' verde, 'meio' amarelo, 'ruim' vermelho, '' sem cor
+const COR = {
+  roe: v => v >= .15 ? 'ok' : v >= .08 ? 'meio' : 'ruim', ml: v => v >= .10 ? 'ok' : v >= .05 ? 'meio' : 'ruim', me: v => v >= .15 ? 'ok' : v >= .08 ? 'meio' : 'ruim',
+  anosLucro: v => v >= 5 ? 'ok' : v >= 4 ? 'meio' : 'ruim', cRec: v => v >= .05 ? 'ok' : v >= 0 ? 'meio' : 'ruim', cLuc: v => v >= .05 ? 'ok' : v >= 0 ? 'meio' : 'ruim',
+  dle: v => v <= 2 ? 'ok' : v <= 3 ? 'meio' : 'ruim', dlpl: v => v <= .5 ? 'ok' : v <= 1 ? 'meio' : 'ruim', lc: v => v >= 1.2 ? 'ok' : v >= 1 ? 'meio' : 'ruim',
+  fcoL: v => v >= .8 ? 'ok' : v >= .5 ? 'meio' : 'ruim', fcl: v => v > 0 ? 'ok' : 'ruim', pay: v => v >= .3 && v <= .8 ? 'ok' : v <= 1 ? 'meio' : 'ruim'
+};
+const d1 = v => v.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+const bi = v => v == null ? '—' : (v < 0 ? '−' : '') + 'R$ ' + (Math.abs(v) >= 1e9 ? d1(Math.abs(v) / 1e9) + ' bi' : Math.abs(v) >= 1e6 ? nf0.format(Math.abs(v) / 1e6) + ' mi' : nf0.format(Math.abs(v)));
+const vezes = v => v == null ? '—' : nf2.format(v).replace(/,00$/, '') + 'x';
+function payoutDe(t, x, e) { return e && e.ind.pl > 0 && x.dy ? x.dy * e.ind.pl : null; }
+/* Confere um critério; devolve true (passa), false (não passa). Para bancos e seguradoras, critérios de dívida, margem e caixa não se aplicam. */
+const NAO_FIN = ['mlMin', 'dleMax', 'lcMin', 'fcoMin', 'fclPos', 'evMax'];
+
 const n1 = v => nf2.format(v).replace(/,00$/, '');
 const pctA = v => v == null ? '—' : nf2.format(v * 100).replace(/,00$/, '') + '%';
 const liqTxt = v => v == null ? '—' : v >= 1000 ? 'R$ ' + n1(v / 1000) + ' mi' : 'R$ ' + nf0.format(v) + ' mil';
@@ -832,12 +868,44 @@ function filtrar(c) {
       if (k.seg && x.seg !== k.seg) continue;
     }
     if (ifrMax != null && !(x.iD != null && x.iD <= ifrMax)) continue;
+    if (c === 'acao' && !passaFund(t, x, k, f)) continue;
     out.push([t, x]);
   }
-  const ord = { dy: (a, b) => (b[1].dy || 0) - (a[1].dy || 0), pvp: (a, b) => (a[1].pvp ?? 9) - (b[1].pvp ?? 9), ifr: (a, b) => (a[1].iD ?? 999) - (b[1].iD ?? 999), liq: (a, b) => (b[1].liq || 0) - (a[1].liq || 0) }[k.ordem] || ((a, b) => 0);
+  const fi = (t, key, def) => { const e = fundDe(t); const v = e && e.ind[key]; return v == null ? def : v; };
+  const ord = { dy: (a, b) => (b[1].dy || 0) - (a[1].dy || 0), pvp: (a, b) => (a[1].pvp ?? 9) - (b[1].pvp ?? 9), ifr: (a, b) => (a[1].iD ?? 999) - (b[1].iD ?? 999), liq: (a, b) => (b[1].liq || 0) - (a[1].liq || 0),
+    roe: (a, b) => fi(b[0], 'roe', -9) - fi(a[0], 'roe', -9), pl: (a, b) => { const x = fi(a[0], 'pl', 999), y = fi(b[0], 'pl', 999); return (x > 0 ? x : 999) - (y > 0 ? y : 999); },
+    dle: (a, b) => fi(a[0], 'dle', 99) - fi(b[0], 'dle', 99) }[k.ordem] || ((a, b) => 0);
   return out.sort(ord);
 }
+function passaFund(t, x, k, f) {
+  const e = fundDe(t), fin = e && e.ind.fin;
+  const usados = CAMPOS_ACAO.filter(c => !['dyMin', 'mesesMin', 'liqMin', 'ifrMax'].includes(c) && k[c] != null && String(k[c]).trim() !== '');
+  if (!usados.length) return true;
+  if (!e) return false;
+  const I = e.ind, pay = payoutDe(t, x, e);
+  for (const c of usados) {
+    if (fin && NAO_FIN.includes(c)) continue;
+    const lim = c === 'fclPos' ? null : f(k[c]);
+    const pc = v => v == null ? null : v * 100;
+    const ok = {
+      roeMin: () => pc(I.roe) >= lim, mlMin: () => pc(I.ml) >= lim, anosMin: () => I.anosLucro >= lim, cRecMin: () => I.cRec != null && pc(I.cRec) >= lim,
+      dleMax: () => I.dle != null && I.dle <= lim, lcMin: () => I.lc != null && I.lc >= lim, fcoMin: () => I.fcoL != null && I.fcoL >= lim, fclPos: () => !/^n/i.test(k.fclPos) ? I.fcl > 0 : true,
+      plMax: () => I.pl > 0 && I.pl <= lim, pvpMax: () => I.pvp > 0 && I.pvp <= lim, evMax: () => I.evEbit > 0 && I.evEbit <= lim,
+      payMin: () => pay != null && pc(pay) >= lim, payMax: () => pay != null && pc(pay) <= lim
+    }[c];
+    if (ok && lim == null && c !== 'fclPos') continue;
+    if (ok && !ok()) return false;
+  }
+  return true;
+}
 function critResumo(c) {
+  if (c === 'acao') {
+    const k = critDe('acao'), p = [], m = { roeMin: 'ROE ≥ %%', mlMin: 'margem ≥ %%', anosMin: 'lucro em % de 5 anos', cRecMin: 'receita crescendo ≥ %% ao ano', dleMax: 'dív. líq./EBITDA ≤ %', lcMin: 'liquidez corrente ≥ %', fcoMin: 'caixa/lucro ≥ %',
+      plMax: 'P/L ≤ %', pvpMax: 'P/VP ≤ %', evMax: 'EV/EBIT ≤ %', dyMin: 'DY ≥ %%', payMin: 'payout ≥ %%', payMax: 'payout ≤ %%', mesesMin: 'proventos em % dos 12 meses', liqMin: 'liquidez ≥ R$ % mi/dia', ifrMax: 'IFR diário ≤ %' };
+    for (const [key, tx] of Object.entries(m)) if (k[key] != null && String(k[key]).trim() !== '') p.push(tx.replace('%', k[key]));
+    if (k.fclPos && !/^n/i.test(k.fclPos)) p.push('fluxo de caixa livre positivo');
+    return p.join(' · ');
+  }
   const k = critDe(c), p = [];
   if (c === 'fii' && k.pvpMax) p.push('P/VP até ' + k.pvpMax);
   if (k.dyMin) p.push('DY a partir de ' + k.dyMin + '%');
@@ -849,6 +917,12 @@ function critResumo(c) {
   return p.join(' · ');
 }
 
+function linhaFund(t) {
+  const e = fundDe(t); if (!e) return 'Liq. ' + liqTxt((AN.dados.ativos[t] || {}).liq) + ' · sem balanço';
+  const I = e.ind;
+  const p0 = v => v == null ? '—' : Math.round(v * 100) + '%';
+  return 'ROE ' + p0(I.roe) + (I.fin ? ' · P/VP ' + (I.pvp > 0 ? d1(I.pvp) : '—') : ' · Dív/EBITDA ' + (I.dle == null ? '—' : I.dle < 0 ? 'caixa' : d1(I.dle))) + ' · P/L ' + (I.pl > 0 ? d1(I.pl) : I.pl < 0 ? 'prej.' : '—');
+}
 function renderAnalise(view) {
   if (!AN.dados) {
     view.innerHTML = '<div class="card empty">' + (AN.erro ? 'Não deu para carregar os dados de análise. Confira a internet e abra a aba de novo.' : 'Carregando os dados de análise…') + '</div>';
@@ -859,6 +933,10 @@ function renderAnalise(view) {
   let h = '<div class="field"><label for="a-busca">Analisar um ativo</label><input id="a-busca" class="upper" autocomplete="off" spellcheck="false" autocapitalize="characters" placeholder="Código ou nome. Ex.: MXRF11, Itaú" value="' + esc(analiseQ) + '"><div class="sug" id="a-sug" hidden></div></div>';
   h += '<section class="sec"><div class="sec-h"><h2>Destaques pelos seus critérios</h2></div>';
   h += '<div class="seg" style="margin-bottom:10px">' + [['fii', 'FIIs'], ['acao', 'Ações']].map(([k, n]) => '<button type="button" data-acls="' + k + '" aria-pressed="' + (k === analiseCls) + '">' + n + '</button>').join('') + '</div>';
+  if (analiseCls === 'acao') {
+    const pr = critDe('acao').preset;
+    h += '<div class="chips">' + [['qualidade', 'Qualidade'], ['dividendos', 'Dividendos'], ['valor', 'Valor'], ['meus', 'Meus critérios']].map(([k2, n]) => '<button type="button" data-preset="' + k2 + '" aria-pressed="' + (k2 === pr) + '">' + n + '</button>').join('') + '</div>';
+  }
   h += '<button class="critbox" id="a-crit"><span>' + esc(critResumo(analiseCls) || 'Sem critérios: mostrando todos') + '</span><b>Editar</b></button>';
   h += '<p class="note">' + lista.length + ' ' + (analiseCls === 'fii' ? 'FIIs' : 'ações') + ' atendem aos critérios. É um filtro pelos números que você escolheu, não uma recomendação de compra.</p>';
   if (lista.length) {
@@ -868,7 +946,7 @@ function renderAnalise(view) {
       h += '<button class="row" data-ficha="' + esc(t) + '">' + tick(x.c, t) +
         '<span class="main"><span class="t">' + esc(t) + (S.ops.some(o => o.ativo === t) ? ' <span class="chip">na carteira</span>' : '') + '</span>' +
         '<span class="s s1">' + esc(x.c === 'fii' ? (x.seg || x.n || '') : (x.n || '')) + '</span>' +
-        '<span class="s s1 num">' + (x.c === 'fii' ? 'P/VP ' + (x.pvp != null ? nf2.format(x.pvp) : '—') + ' · ' : '') + 'Liq. ' + liqTxt(x.liq) + '</span></span>' +
+        '<span class="s s1 num">' + (x.c === 'fii' ? 'P/VP ' + (x.pvp != null ? nf2.format(x.pvp) : '—') + ' · Liq. ' + liqTxt(x.liq) : linhaFund(t)) + '</span></span>' +
         '<span class="r num"><span class="v">DY ' + pctA(x.dy) + '</span><span class="s">IFR <span class="' + i.cls + '">' + i.txt + '</span></span></span></button>';
     }
     h += '</div>';
@@ -896,6 +974,7 @@ function renderAnalise(view) {
 function resumo(t) {
   const x = AN.dados.ativos[t]; if (!x) return [];
   const L = [], fii = x.c === 'fii', m = fii && x.seg ? (AN.med.seg[x.seg] || null) : null;
+  if (!fii) L.push(...resumoFund(t, x));
   if (fii) {
     if (x.mp >= 12) L.push(['ok', 'Pagou rendimento em todos os 12 últimos meses, em média R$ ' + nf4.format(x.pm) + ' por cota.']);
     else if (x.mp > 0) L.push(['alerta', 'Pagou em ' + x.mp + ' dos últimos 12 meses.']);
@@ -932,6 +1011,75 @@ function resumo(t) {
   if (x.v12 != null) L.push(['neutro', 'Em 12 meses o preço ' + (x.v12 >= 0 ? 'subiu ' : 'caiu ') + pctA(Math.abs(x.v12)) + (x.mp ? ', sem contar os proventos.' : '.')]);
   const iD = ifrInfo(x.iD), iS = ifrInfo(x.iS);
   if (x.iD != null) L.push([iD.nome === 'neutro' ? 'neutro' : 'alerta', 'IFR diário em ' + iD.txt + ' (' + iD.nome + ')' + (x.iS != null ? '; semanal em ' + iS.txt + ' (' + iS.nome + ').' : '.')]);
+  return L;
+}
+
+/* Fundamentos na ficha: indicadores com bolinha de cor e 5 anos em minigráficos */
+function blocoFund(t, x) {
+  const e = fundDe(t); if (!e) return AN.fund ? '<p class="note" style="margin:12px 2px 0">Sem balanço na CVM para este código (ETF, BDR ou empresa sem registro).</p>' : '';
+  const I = e.ind, M = AN.medF || {}, pay = payoutDe(t, x, e);
+  const grade = cs => { const l = cs.filter(Boolean); if (l.length % 2) l.push('<div></div>'); return '<div class="fgrid">' + l.join('') + '</div>'; };
+  const cel = (nome, v, cor, sub) => '<div><span>' + nome + '</span><b>' + (cor ? '<i class="dot ' + cor + '"></i>' : '') + v + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>';
+  const c = (k, v) => v == null ? '' : COR[k](v);
+  const cresc = v => v == null ? '—' : (v >= 0 ? '+' : '−') + pctA(Math.abs(v)) + ' ao ano';
+  const med = (k, fmt) => M[k] != null ? 'mediana ' + fmt(M[k]) : '';
+  let h = '<div class="ret fund"><h4>Fundamentos</h4><p class="note" style="margin:0 0 10px">' + (e.f === '12m' ? 'Últimos 12 meses até ' : 'Ano de ') + fmtDate(e.ref) + ' · balanços entregues à CVM</p>';
+  h += '<p class="grp">Lucro e eficiência</p>' + grade([
+    cel('ROE', pctA(I.roe), c('roe', I.roe), 'lucro ÷ patrimônio'), I.fin ? cel('Lucro (12 meses)', bi(lucroTTM(e)), '') : cel('Margem líquida', pctA(I.ml), c('ml', I.ml)),
+    I.fin ? '' : cel('Margem EBIT', pctA(I.me), c('me', I.me)), cel('Anos com lucro', I.anosLucro + ' de ' + I.nAnos, c('anosLucro', I.anosLucro)),
+    cel('Receita em 5 anos', cresc(I.cRec), c('cRec', I.cRec)), cel('Lucro em 5 anos', cresc(I.cLuc), c('cLuc', I.cLuc))]);
+  if (I.fin) h += '<p class="note" style="margin:8px 2px 0">Banco, seguradora ou holding: margem, dívida e caixa se medem de outro jeito, por isso ficam de fora. Olhe ROE, constância do lucro e P/VP.</p>';
+  else h += '<p class="grp">Dívida e caixa</p>' + grade([
+    cel('Dív. líq./EBITDA', I.dle == null ? '—' : I.dle < 0 ? 'caixa líquido' : vezes(I.dle), I.dle == null ? '' : I.dle < 0 ? 'ok' : COR.dle(I.dle), 'anos de geração de caixa p/ pagar'),
+    cel('Dív. líq./Patrimônio', I.dlpl == null ? '—' : I.dlpl < 0 ? 'caixa líquido' : vezes(I.dlpl), I.dlpl == null ? '' : I.dlpl < 0 ? 'ok' : COR.dlpl(I.dlpl)),
+    cel('Liquidez corrente', I.lc == null ? '—' : n1(I.lc), c('lc', I.lc), 'curto prazo: tem ÷ deve'),
+    cel('Caixa operacional/lucro', I.fcoL == null ? '—' : vezes(I.fcoL), c('fcoL', I.fcoL), 'quanto do lucro virou caixa'),
+    cel('Fluxo de caixa livre', bi(I.fcl), c('fcl', I.fcl), '12 meses, após investimentos'), cel('EBITDA', bi(I.ebitda), '')]);
+  h += '<p class="grp">Preço</p>' + grade([
+    cel('P/L', I.pl > 0 ? n1(I.pl) : I.pl < 0 ? 'prejuízo' : '—', '', med('pl', n1)), cel('P/VP', I.pvp > 0 ? nf2.format(I.pvp) : '—', '', med('pvp', v => nf2.format(v))),
+    I.fin ? '' : cel('EV/EBIT', I.evEbit > 0 ? n1(I.evEbit) : '—', '', med('evEbit', n1)), cel('Payout', pay == null ? '—' : pctA(pay), pay == null ? '' : COR.pay(pay), 'proventos ÷ lucro'),
+    cel('Valor de mercado', bi(e.mc), '')]);
+  h += miniGraficos(e);
+  h += '<p class="note" style="margin:8px 2px 0"><i class="dot ok"></i> bom &nbsp; <i class="dot meio"></i> atenção &nbsp; <i class="dot ruim"></i> fraco · referências comuns para longo prazo, não regras.</p></div>';
+  return h;
+}
+const lucroTTM = e => e.ind.pl > 0 && e.mc ? e.mc / e.ind.pl : null;
+function miniGraficos(e) {
+  const H = e.h || {}, a = H.a || []; if (a.length < 2) return '';
+  const ml = a.map((_, i) => H.r[i] > 0 && H.l[i] != null ? H.l[i] / H.r[i] : null);
+  const dle = a.map((_, i) => H.eb && H.eb[i] > 0 && H.dl[i] != null ? H.dl[i] / H.eb[i] : null);
+  const G = [['Receita', H.r, bi], ['Lucro', H.l, bi]];
+  if (!e.ind.fin) G.push(['Margem líquida', ml, pctA], ['Dívida/EBITDA', dle, v => v < 0 ? 'caixa líq.' : vezes(v), true]);
+  return '<p class="grp">Últimos anos</p><div class="minis">' + G.map(([nome, v, fmt, divida]) => {
+    const vals = v.map(x => x == null ? null : x), mp = Math.max(0, ...vals.filter(x => x != null)), mn = Math.min(0, ...vals.filter(x => x != null));
+    const tot = (mp - mn) || 1, hp = 54 * mp / tot, hn = 54 * -mn / tot, ult = [...vals].reverse().find(x => x != null);
+    return '<div class="mini' + (divida ? ' divida' : '') + '"><div class="mt"><span>' + nome + '</span><b>' + (ult == null ? '—' : fmt(ult)) + '</b></div><div class="mb">' + vals.map((x, i) =>
+      '<div class="mc"><div class="mp" style="height:' + hp + 'px">' + (x > 0 ? '<i style="height:' + (x / tot * 54) + 'px"></i>' : '') + '</div>' +
+      (hn ? '<div class="mn" style="height:' + hn + 'px">' + (x < 0 ? '<i style="height:' + (-x / tot * 54) + 'px"></i>' : '') + '</div>' : '') +
+      '<em>' + String(a[i]).slice(2) + '</em></div>').join('') + '</div></div>';
+  }).join('') + '</div>';
+}
+function resumoFund(t, x) {
+  const e = fundDe(t); if (!e) return [];
+  const I = e.ind, L = [], M = AN.medF || {}, pay = payoutDe(t, x, e);
+  if (I.roe != null) L.push([I.roe >= .15 ? 'ok' : I.roe >= .08 ? 'neutro' : 'alerta', (I.roe >= .15 ? 'Rentabilidade alta: ' : I.roe >= .08 ? 'Rentabilidade média: ' : 'Rentabilidade baixa: ') + 'ROE de ' + pctA(I.roe) + (e.f === '12m' ? ' nos últimos 12 meses.' : ' no último ano.')]);
+  if (I.nAnos >= 3) L.push(I.anosLucro >= I.nAnos ? ['ok', 'Teve lucro em todos os últimos ' + I.nAnos + ' anos.'] : ['alerta', 'Teve prejuízo em ' + (I.nAnos - I.anosLucro) + ' dos últimos ' + I.nAnos + ' anos.']);
+  if (I.cRec != null || I.cLuc != null) L.push([(I.cLuc ?? I.cRec) >= .05 ? 'ok' : (I.cLuc ?? I.cRec) < 0 ? 'alerta' : 'neutro', 'Em 5 anos, ' + [I.cRec != null ? 'a receita ' + (I.cRec >= 0 ? 'cresceu ' : 'caiu ') + pctA(Math.abs(I.cRec)) + ' ao ano' : '', I.cLuc != null ? 'o lucro ' + (I.cLuc >= 0 ? 'cresceu ' : 'caiu ') + pctA(Math.abs(I.cLuc)) + ' ao ano' : ''].filter(Boolean).join(' e ') + '.']);
+  if (!I.fin) {
+    if (I.dle != null) L.push(I.dle < 0 ? ['ok', 'Tem mais dinheiro em caixa do que dívidas.'] : I.dle <= 2 ? ['ok', 'Dívida controlada: a dívida líquida equivale a ' + vezes(I.dle) + ' o EBITDA (geração de caixa de um ano).'] : I.dle <= 3 ? ['neutro', 'Dívida moderada: ' + vezes(I.dle) + ' o EBITDA.'] : ['alerta', 'Dívida alta: ' + vezes(I.dle) + ' o EBITDA. Precisaria de mais de 3 anos de geração de caixa para quitar.']);
+    const H = e.h || {}, n = (H.a || []).length;
+    if (n >= 3) {
+      const r = i => H.eb[i] > 0 && H.dl[i] != null ? H.dl[i] / H.eb[i] : null, ag = r(n - 1), antes = r(n - 3);
+      if (ag != null && antes != null && Math.abs(ag - antes) >= .5) L.push([ag > antes ? 'alerta' : 'ok', 'A dívida ' + (ag > antes ? 'subiu' : 'caiu') + ' em relação à geração de caixa: de ' + vezes(antes) + ' em ' + H.a[n - 3] + ' para ' + vezes(ag) + ' em ' + H.a[n - 1] + '.']);
+    }
+    if (I.fcoL != null) L.push(I.fcoL >= .8 ? ['ok', 'O lucro vira dinheiro: o caixa das operações foi ' + vezes(I.fcoL) + ' o lucro.'] : I.fcoL < .5 ? ['alerta', 'Pouco do lucro virou dinheiro em caixa (' + vezes(I.fcoL) + ').'] : ['neutro', 'O caixa das operações foi ' + vezes(I.fcoL) + ' o lucro.']);
+    if (I.fcl != null && I.fcl < 0) L.push(['alerta', 'Fluxo de caixa livre negativo em 12 meses: investiu ou gastou mais do que gerou.']);
+    if (I.lc != null && I.lc < 1) L.push(['alerta', 'Liquidez corrente abaixo de 1: deve mais no curto prazo do que tem a receber no curto prazo.']);
+  }
+  if (pay != null && pay > 1) L.push(['alerta', 'Pagou mais proventos do que lucrou (payout de ' + pctA(pay) + '): pode não se repetir.']);
+  else if (pay != null && pay >= .3) L.push(['neutro', 'Distribui ' + pctA(pay) + ' do lucro como proventos.']);
+  if (I.pl > 0 && M.pl) L.push(['neutro', 'P/L de ' + n1(I.pl) + ' (' + (I.pl < M.pl ? 'abaixo' : 'acima') + ' da mediana da bolsa, ' + n1(M.pl) + '): o preço equivale a ' + n1(I.pl) + ' anos do lucro atual.']);
+  else if (I.pl < 0) L.push(['alerta', 'Teve prejuízo nos últimos 12 meses.']);
   return L;
 }
 
@@ -982,6 +1130,7 @@ async function ficha(t) {
   if (fii) pares.push(['P/VP', x.pvp != null ? nf2.format(x.pvp) : '—'], ['Valor patrimonial', x.vp ? 'R$ ' + nf2.format(x.vp) : '—'], ['Cotistas', x.cot ? nf0.format(x.cot) : '—'], ['Segmento', esc(x.seg || '—')]);
   pares.push(['Mín. 12 meses', x.mn != null ? 'R$ ' + nf2.format(x.mn) : '—'], ['Máx. 12 meses', x.mx != null ? 'R$ ' + nf2.format(x.mx) : '—'], ['Liquidez diária', liqTxt(x.liq)], ['Variação 12 meses', x.v12 != null ? pct(x.v12) : '—']);
   h += '<div style="margin-top:14px">' + kv(pares) + '</div>';
+  if (!fii) h += blocoFund(t, x);
   // pagamentos dos últimos 12 meses
   const ini = iso(new Date(new Date().getFullYear(), new Date().getMonth() - 11, 1));
   const pg = (S.mk.anuncios || []).filter(a => a.t === t && a.pag >= ini).sort((a, b) => a.pag < b.pag ? -1 : 1);
@@ -994,7 +1143,7 @@ async function ficha(t) {
   }
   const R = resumo(t);
   h += '<div class="ret"><h4>Resumo</h4><ul class="resumo">' + R.map(([k, txt]) => '<li class="' + k + '">' + txt + '</li>').join('') + '</ul>' +
-    '<p class="note" style="margin:8px 0 0">Feito automaticamente com os números acima' + (fii && x.ref ? ' (valor patrimonial de ' + fmtDate(x.ref.slice(0, 10)) + ')' : '') + '. Não é recomendação de compra ou venda.</p></div>';
+    '<p class="note" style="margin:8px 0 0">Feito automaticamente com os números acima' + (fii && x.ref ? ' (valor patrimonial de ' + fmtDate(x.ref.slice(0, 10)) + ')' : !fii && fundDe(t) ? ' (balanço de ' + fmtDate(fundDe(t).ref) + ')' : '') + '. Não é recomendação de compra ou venda.</p></div>';
   h += '<div style="margin-top:14px"><button class="primary" id="f-comprar">Lançar compra de ' + esc(t) + '</button></div>';
   openSheet(t, h, async b => {
     b.querySelector('#f-comprar').addEventListener('click', () => formulario({ cls: x.c, tipo: 'compra', ativo: t, preco: x.p ? nf2.format(x.p) : '' }));
@@ -1045,6 +1194,17 @@ function desenharGrafico(L, rowsD, tf) {
   graficos = [cP, cI];
 }
 
+async function escolherPreset(p) {
+  const atual = ((app.settings.criterios || {}).acao) || {};
+  const meus = atual.meus || null;
+  const novo = p === 'meus' ? Object.assign({}, meus || PRESETS.qualidade, { preset: 'meus', meus }) : { preset: p, meus };
+  delete novo.nome;
+  const todos = Object.assign({}, app.settings.criterios || {}, { acao: novo });
+  app.settings.criterios = todos; analiseLimite = 30; render();
+  try { await store.ajustes({ criterios: todos }); } catch (e) { /* fica até sincronizar */ }
+  if (p === 'meus' && !meus) criterios();
+}
+
 /* Critérios dos destaques (ficam salvos na sua conta) */
 function criterios() {
   const c = analiseCls, k = critDe(c);
@@ -1053,13 +1213,20 @@ function criterios() {
   let h = '<div class="form">';
   if (c === 'fii') h += '<div class="two">' + campo('pvpMax', 'P/VP máximo', k.pvpMax, 'sem limite') + campo('dyMin', 'DY 12 meses mínimo (%)', k.dyMin, 'sem limite') + '</div>' +
     '<div class="two">' + campo('mesesMin', 'Meses pagos (de 12)', k.mesesMin, 'sem limite') + campo('cotMin', 'Cotistas mínimo', k.cotMin, 'sem limite') + '</div>';
-  else h += '<div class="two">' + campo('dyMin', 'DY 12 meses mínimo (%)', k.dyMin, 'sem limite') + campo('mesesMin', 'Meses com proventos (de 12)', k.mesesMin, 'sem limite') + '</div>';
+  else h += '<p class="grp">Lucro e eficiência</p><div class="two">' + campo('roeMin', 'ROE mínimo (%)', k.roeMin, 'sem limite') + campo('mlMin', 'Margem líquida mínima (%)', k.mlMin, 'sem limite') + '</div>' +
+    '<div class="two">' + campo('anosMin', 'Anos com lucro (de 5)', k.anosMin, 'sem limite') + campo('cRecMin', 'Receita crescendo (% ao ano)', k.cRecMin, 'sem limite') + '</div>' +
+    '<p class="grp">Dívida e caixa</p><div class="two">' + campo('dleMax', 'Dív. líquida/EBITDA máx.', k.dleMax, 'sem limite') + campo('lcMin', 'Liquidez corrente mín.', k.lcMin, 'sem limite') + '</div>' +
+    '<div class="two">' + campo('fcoMin', 'Caixa operacional/lucro mín.', k.fcoMin, 'sem limite') + '<div class="field"><label for="c-fclPos">Fluxo de caixa livre</label><select id="c-fclPos"><option value=""' + (!k.fclPos ? ' selected' : '') + '>Tanto faz</option><option value="sim"' + (k.fclPos === 'sim' ? ' selected' : '') + '>Positivo</option></select></div></div>' +
+    '<p class="grp">Preço</p><div class="two">' + campo('plMax', 'P/L máximo', k.plMax, 'sem limite') + campo('evMax', 'EV/EBIT máximo', k.evMax, 'sem limite') + '</div>' +
+    '<div class="two">' + campo('pvpMax', 'P/VP máximo', k.pvpMax, 'sem limite') + campo('dyMin', 'DY 12 meses mínimo (%)', k.dyMin, 'sem limite') + '</div>' +
+    '<div class="two">' + campo('payMin', 'Payout mínimo (%)', k.payMin, 'sem limite') + campo('payMax', 'Payout máximo (%)', k.payMax, 'sem limite') + '</div>' +
+    '<p class="grp">Negociação</p>';
   h += '<div class="two">' + campo('liqMin', 'Liquidez mínima (R$ mi/dia)', k.liqMin, 'sem limite') + campo('ifrMax', 'IFR diário máximo', k.ifrMax, 'sem limite') + '</div>';
   if (c === 'fii') h += '<div class="field"><label for="c-seg">Segmento</label><select id="c-seg"><option value="">Todos</option>' + segs.map(sg => '<option' + (sg === k.seg ? ' selected' : '') + '>' + esc(sg) + '</option>').join('') + '</select></div>';
-  h += '<div class="field"><label for="c-ordem">Ordenar por</label><select id="c-ordem">' + [['dy', 'Maior DY'], ['pvp', 'Menor P/VP'], ['ifr', 'Menor IFR diário'], ['liq', 'Maior liquidez']].filter(([o]) => c === 'fii' || o !== 'pvp').map(([o, n]) => '<option value="' + o + '"' + (o === k.ordem ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>';
-  h += '<p class="note" style="margin:-4px 2px 0">Deixe em branco o que não quiser usar. Ex.: IFR diário máximo 35 mostra só os que caíram bastante nos últimos dias.</p>';
+  h += '<div class="field"><label for="c-ordem">Ordenar por</label><select id="c-ordem">' + (c === 'fii' ? [['dy', 'Maior DY'], ['pvp', 'Menor P/VP'], ['ifr', 'Menor IFR diário'], ['liq', 'Maior liquidez']] : [['roe', 'Maior ROE'], ['dy', 'Maior DY'], ['pl', 'Menor P/L'], ['dle', 'Menor dívida'], ['ifr', 'Menor IFR diário'], ['liq', 'Maior liquidez']]).map(([o, n]) => '<option value="' + o + '"' + (o === k.ordem ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>';
+  h += '<p class="note" style="margin:-4px 2px 0">Deixe em branco o que não quiser usar.' + (c === 'acao' ? ' Para bancos e seguradoras, os critérios de margem, dívida e caixa não se aplicam e são ignorados. Mudar algo aqui salva em "Meus critérios".' : ' Ex.: IFR diário máximo 35 mostra só os que caíram bastante nos últimos dias.') + '</p>';
   h += '<button class="primary" id="c-salvar">Aplicar critérios</button><button class="ghost" id="c-padrao" type="button">Voltar ao padrão</button></div>';
-  openSheet('Critérios · ' + (c === 'fii' ? 'FIIs' : 'Ações'), h, b => {
+  openSheet('Critérios · ' + (c === 'fii' ? 'FIIs' : 'Ações' + (k.preset && k.preset !== 'meus' ? ' (' + PRESETS[k.preset].nome + ')' : '')), h, b => {
     const salvarCrit = async novo => {
       const todos = Object.assign({}, app.settings.criterios || {}, { [c]: novo });
       app.settings.criterios = todos; analiseLimite = 30;
@@ -1068,9 +1235,10 @@ function criterios() {
     };
     b.querySelector('#c-salvar').addEventListener('click', () => {
       const novo = {}; b.querySelectorAll('input[id^="c-"], select[id^="c-"]').forEach(el => { novo[el.id.slice(2)] = el.value.trim(); });
-      salvarCrit(novo);
+      if (c === 'acao') { const m = Object.assign({}, novo); salvarCrit(Object.assign({}, novo, { preset: 'meus', meus: m })); }
+      else salvarCrit(novo);
     });
-    b.querySelector('#c-padrao').addEventListener('click', () => salvarCrit(Object.assign({}, CRIT_PADRAO[c])));
+    b.querySelector('#c-padrao').addEventListener('click', () => salvarCrit(c === 'acao' ? { preset: 'qualidade', meus: (((app.settings.criterios || {}).acao) || {}).meus || null } : Object.assign({}, CRIT_PADRAO[c])));
   });
 }
 

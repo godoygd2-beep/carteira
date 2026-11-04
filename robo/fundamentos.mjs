@@ -88,7 +88,7 @@ function lucroDe(dre) {
 }
 function ehFinanceira(dre) {
   const r = dre && dre['3.01'] ? dre['3.01'][1] : '';
-  return /intermedia[cç][aã]o financeira|pr[eê]mios|receitas de opera[cç][oõ]es|seguros/i.test(r);
+  return /intermedia[cç][aã]o financeira|pr[eê]mios|receitas de opera[cç][oõ]es|seguros|segurador/i.test(r);
 }
 function fluxo(E, T, fim, ini, ordem) { // DRE ou DFC de um período
   for (const [k, o] of Object.entries(E)) { const p = k.split('|'); if (p[0] === T && p[1] === fim && p[2] === ini && p[3] === ordem) return o; }

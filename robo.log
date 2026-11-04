@@ -1,0 +1,673 @@
+[02:56:51] dados anteriores: ok
+--- SONDA brapi v2 tickers ---
+{
+ "pagination": {
+  "page": 1,
+  "limit": 100,
+  "totalItems": 2386,
+  "totalPages": 24,
+  "hasNextPage": true
+ },
+ "primeiro": {
+  "symbol": "03BK11",
+  "name": "GALAPAGOS TEVA ITBR TESOURO IPCA 3 ANOS FUNDO DE ÍNDICE",
+  "longName": "Galapagos Teva ITBR Tesouro IPCA 3 Anos Fundo de Indice ETF",
+  "assetType": "fund",
+  "subType": "etf",
+  "exchange": "B3",
+  "currency": "BRL",
+  "sector": "Miscellaneous",
+  "subsector": null,
+  "isActive": true,
+  "logoUrl": "https://icons.brapi.dev/icons/03BK11.svg",
+  "quote": {
+   "lastPrice": 51.81,
+   "changePercent": 0.1,
+   "volume": 217,
+   "marketCap": null
+  }
+ }
+}
+[02:56:52] B3: 2386 preços, 1948 ações/ETFs/BDRs, 412 FIIs
+[02:56:53] Cripto: 31 moedas, USDT/BRL 5.5102
+[02:56:55] Dólar: 5.4935
+[02:56:55] bcb: ainda atual, pulando
+--- SONDA Tesouro CSV ---
+Tipo Titulo;Data Vencimento;Data Base;Taxa Compra Manha;Taxa Venda Manha;PU Compra Manha;PU Venda Manha;PU Base Manha
+Tesouro Selic;01/03/2029;30/10/2026;0,06;0,07;20185,67;20170,66;20170,66
+Tesouro Selic;01/03/2031;30/10/2026;0,10;0,11;20120,75;20101,76;20101,76
+[02:57:13] Tesouro: 58 títulos (preços de 2026-10-30)
+--- SONDA FundosNET lista ---
+{
+ "total": 7,
+ "filtrados": 7,
+ "primeiro": {
+  "altaPrioridade": false,
+  "analisado": "S",
+  "arquivoEstruturado": " ",
+  "assuntos": null,
+  "categoriaDocumento": "Aviso aos Cotistas - Estruturado",
+  "cnpjAdministrador": null,
+  "cnpjFundo": null,
+  "codSegNegociacao": null,
+  "dataEntrega": "03/11/2026 18:04",
+  "dataReferencia": "03/11/2026",
+  "dda": null,
+  "descricaoFundo": "VINCI MOZAK RESIDENCIAL II FUNDO DE INVESTIMENTO IMOBILIÁRIO - RESPONSABILIDADE LIMITADA",
+  "descricaoModalidade": "Reapresentação Espontânea",
+  "descricaoStatus": "Ativo com visualização",
+  "especieDocumento": "",
+  "formatoDataReferencia": "3",
+  "formatoEstruturaDocumento": null,
+  "fundoOuClasse": "Classe",
+  "id": 1367649,
+  "idEntidadeGerenciadora": null,
+  "idFundo": null,
+  "idSelectItemConvenio": 0,
+  "idSelectNotificacaoConvenio": null,
+  "idTemplate": 0,
+  "indicadorFundoAtivoB3": false,
+  "informacoesAdicionais": "FII VIMO;",
+  "modalidade": "RE",
+  "nomeAdministrador": null,
+  "nomePregao": "FII VIMO",
+  "nomePrimeiraVisualizacao": null,
+  "numeroEmissao": null,
+  "ofertaPublica": null,
+  "situacaoDocumento": "A",
+  "status": "AC",
+  "tipoDocumento": "Rendimentos e Amortizações",
+  "tipoPedido": null,
+  "versao": 2
+ }
+}
+[02:57:13] FundosNET: 7 avisos de rendimento nos últimos 3 dias, 0 novos
+[02:57:13] FundosNET: 0 proventos lidos
+[02:57:13] proventosFII: ainda atual, pulando
+[02:57:13] proventosAcoes: ainda atual, pulando
+[02:57:14] histórico: 0 pregões-ativo novos
+--- SONDA histórico PETR4 ---
+[
+ [
+  20261029,
+  5205,
+  5303,
+  5175,
+  5220,
+  2717102
+ ],
+ [
+  20261030,
+  5245,
+  5366,
+  5236,
+  5271,
+  3265522
+ ],
+ [
+  20261103,
+  5120,
+  5121,
+  4915,
+  5071,
+  4714090
+ ]
+]
+[02:57:14] histórico: 2002 ativos, último pregão 20261103
+[02:57:16] análise: 2360 ativos, 1875 arquivos de histórico
+[02:57:16] DFP 2021: baixado
+[02:57:17]   dfp_cia_aberta_DRE_con_2021.csv: 11126 linhas úteis
+[02:57:17]   dfp_cia_aberta_BPA_con_2021.csv: 3690 linhas úteis
+[02:57:17]   dfp_cia_aberta_BPP_con_2021.csv: 5708 linhas úteis
+[02:57:17]   dfp_cia_aberta_DFC_MI_con_2021.csv: 4730 linhas úteis
+[02:57:17]   dfp_cia_aberta_DFC_MD_con_2021.csv: 150 linhas úteis
+[02:57:17]   dfp_cia_aberta_DRE_ind_2021.csv: 7182 linhas úteis
+[02:57:18]   dfp_cia_aberta_BPA_ind_2021.csv: 2388 linhas úteis
+[02:57:18]   dfp_cia_aberta_BPP_ind_2021.csv: 3648 linhas úteis
+[02:57:18]   dfp_cia_aberta_DFC_MI_ind_2021.csv: 2547 linhas úteis
+[02:57:18]   dfp_cia_aberta_DFC_MD_ind_2021.csv: 77 linhas úteis
+[02:57:18] DFP 2022: baixado
+[02:57:18]   dfp_cia_aberta_DRE_con_2022.csv: 11600 linhas úteis
+[02:57:18]   dfp_cia_aberta_BPA_con_2022.csv: 3850 linhas úteis
+[02:57:19]   dfp_cia_aberta_BPP_con_2022.csv: 5942 linhas úteis
+[02:57:19]   dfp_cia_aberta_DFC_MI_con_2022.csv: 4988 linhas úteis
+[02:57:19]   dfp_cia_aberta_DFC_MD_con_2022.csv: 174 linhas úteis
+[02:57:19]   dfp_cia_aberta_DRE_ind_2022.csv: 6288 linhas úteis
+[02:57:19]   dfp_cia_aberta_BPA_ind_2022.csv: 2092 linhas úteis
+[02:57:20]   dfp_cia_aberta_BPP_ind_2022.csv: 3212 linhas úteis
+[02:57:20]   dfp_cia_aberta_DFC_MI_ind_2022.csv: 2349 linhas úteis
+[02:57:20]   dfp_cia_aberta_DFC_MD_ind_2022.csv: 86 linhas úteis
+[02:57:20] DFP 2023: baixado
+[02:57:20]   dfp_cia_aberta_DRE_con_2023.csv: 11660 linhas úteis
+[02:57:20]   dfp_cia_aberta_BPA_con_2023.csv: 3878 linhas úteis
+[02:57:20]   dfp_cia_aberta_BPP_con_2023.csv: 5964 linhas úteis
+[02:57:21]   dfp_cia_aberta_DFC_MI_con_2023.csv: 5142 linhas úteis
+[02:57:21]   dfp_cia_aberta_DFC_MD_con_2023.csv: 126 linhas úteis
+[02:57:21]   dfp_cia_aberta_DRE_ind_2023.csv: 6554 linhas úteis
+[02:57:21]   dfp_cia_aberta_BPA_ind_2023.csv: 2180 linhas úteis
+[02:57:21]   dfp_cia_aberta_BPP_ind_2023.csv: 3344 linhas úteis
+[02:57:22]   dfp_cia_aberta_DFC_MI_ind_2023.csv: 2347 linhas úteis
+[02:57:22]   dfp_cia_aberta_DFC_MD_ind_2023.csv: 170 linhas úteis
+[02:57:22] DFP 2024: baixado
+[02:57:22]   dfp_cia_aberta_DRE_con_2024.csv: 11236 linhas úteis
+[02:57:22]   dfp_cia_aberta_BPA_con_2024.csv: 3734 linhas úteis
+[02:57:22]   dfp_cia_aberta_BPP_con_2024.csv: 5734 linhas úteis
+[02:57:22]   dfp_cia_aberta_DFC_MI_con_2024.csv: 5002 linhas úteis
+[02:57:22]   dfp_cia_aberta_DFC_MD_con_2024.csv: 120 linhas úteis
+[02:57:22]   dfp_cia_aberta_DRE_ind_2024.csv: 5902 linhas úteis
+[02:57:23]   dfp_cia_aberta_BPA_ind_2024.csv: 1964 linhas úteis
+[02:57:23]   dfp_cia_aberta_BPP_ind_2024.csv: 3008 linhas úteis
+[02:57:23]   dfp_cia_aberta_DFC_MI_ind_2024.csv: 2316 linhas úteis
+[02:57:23]   dfp_cia_aberta_DFC_MD_ind_2024.csv: 70 linhas úteis
+[02:57:23] DFP 2025: baixado
+[02:57:23]   dfp_cia_aberta_DRE_con_2025.csv: 10624 linhas úteis
+[02:57:24]   dfp_cia_aberta_BPA_con_2025.csv: 3536 linhas úteis
+[02:57:24]   dfp_cia_aberta_BPP_con_2025.csv: 5398 linhas úteis
+[02:57:24]   dfp_cia_aberta_DFC_MI_con_2025.csv: 4760 linhas úteis
+[02:57:24]   dfp_cia_aberta_DFC_MD_con_2025.csv: 96 linhas úteis
+[02:57:24]   dfp_cia_aberta_DRE_ind_2025.csv: 5452 linhas úteis
+[02:57:24]   dfp_cia_aberta_BPA_ind_2025.csv: 1816 linhas úteis
+[02:57:25]   dfp_cia_aberta_BPP_ind_2025.csv: 2788 linhas úteis
+[02:57:25]   dfp_cia_aberta_DFC_MI_ind_2025.csv: 2132 linhas úteis
+[02:57:25]   dfp_cia_aberta_DFC_MD_ind_2025.csv: 74 linhas úteis
+[02:57:25] DFP 2026: baixado
+[02:57:25]   dfp_cia_aberta_DRE_con_2026.csv: 216 linhas úteis
+[02:57:25]   dfp_cia_aberta_BPA_con_2026.csv: 72 linhas úteis
+[02:57:25]   dfp_cia_aberta_BPP_con_2026.csv: 108 linhas úteis
+[02:57:25]   dfp_cia_aberta_DFC_MI_con_2026.csv: 96 linhas úteis
+[02:57:25] ITR 2025: baixado
+[02:57:26]   itr_cia_aberta_DRE_con_2025.csv: 54032 linhas úteis
+[02:57:26]   itr_cia_aberta_BPA_con_2025.csv: 10818 linhas úteis
+[02:57:27]   itr_cia_aberta_BPP_con_2025.csv: 16572 linhas úteis
+[02:57:27]   itr_cia_aberta_DFC_MI_con_2025.csv: 14514 linhas úteis
+[02:57:27]   itr_cia_aberta_DFC_MD_con_2025.csv: 282 linhas úteis
+[02:57:28]   itr_cia_aberta_DRE_ind_2025.csv: 28870 linhas úteis
+[02:57:28]   itr_cia_aberta_BPA_ind_2025.csv: 5808 linhas úteis
+[02:57:30]   itr_cia_aberta_BPP_ind_2025.csv: 8936 linhas úteis
+[02:57:30]   itr_cia_aberta_DFC_MI_ind_2025.csv: 6810 linhas úteis
+[02:57:30]   itr_cia_aberta_DFC_MD_ind_2025.csv: 171 linhas úteis
+[02:57:30] ITR 2026: baixado
+[02:57:31]   itr_cia_aberta_DRE_con_2026.csv: 31108 linhas úteis
+[02:57:31]   itr_cia_aberta_BPA_con_2026.csv: 6864 linhas úteis
+[02:57:31]   itr_cia_aberta_BPP_con_2026.csv: 10486 linhas úteis
+[02:57:32]   itr_cia_aberta_DFC_MI_con_2026.csv: 9282 linhas úteis
+[02:57:32]   itr_cia_aberta_DFC_MD_con_2026.csv: 162 linhas úteis
+[02:57:32]   itr_cia_aberta_DRE_ind_2026.csv: 16326 linhas úteis
+[02:57:32]   itr_cia_aberta_BPA_ind_2026.csv: 3608 linhas úteis
+[02:57:33]   itr_cia_aberta_BPP_ind_2026.csv: 5538 linhas úteis
+[02:57:33]   itr_cia_aberta_DFC_MI_ind_2026.csv: 4302 linhas úteis
+[02:57:33]   itr_cia_aberta_DFC_MD_ind_2026.csv: 88 linhas úteis
+--- SONDA fundamentos PETR4 ---
+{
+ "n": "PETROLEO BRASILEIRO S.A. PETROBRAS",
+ "ref": "2026-06-30",
+ "f": "12m",
+ "ind": {
+  "fin": false,
+  "roe": 0.2776,
+  "ml": 0.2439,
+  "anosLucro": 5,
+  "nAnos": 5,
+  "cRec": 0.0239,
+  "cLuc": 0.0077,
+  "pl": 5.432,
+  "pvp": 1.5079,
+  "me": 0.3386,
+  "dle": 1.1443,
+  "dlpl": 0.6491,
+  "lc": 0.8544,
+  "fcoL": 1.6026,
+  "fcl": 105338000000,
+  "evEbit": 5.5955,
+  "ebitda": 273323000000
+ },
+ "mc": 726564863632,
+ "h": {
+  "a": [
+   2020,
+   2021,
+   2022,
+   2023,
+   2024,
+   2025
+  ],
+  "r": [
+   272069000000,
+   452668000000,
+   641256000000,
+   511994000000,
+   490829000000,
+   497549000000
+  ],
+  "l": [
+   6246000000,
+   107264000000,
+   189005000000,
+   125166000000,
+   37009000000,
+   110605000000
+  ],
+  "dl": [
+   328268000000,
+   265778000000,
+   224510000000,
+   227799000000,
+   326816000000,
+   333417000000
+  ],
+  "eb": [
+   107926000000,
+   273879000000,
+   362457000000,
+   255546000000,
+   204234000000,
+   230016000000
+  ]
+ }
+}
+--- SONDA fundamentos WEGE3 ---
+{
+ "n": "WEG S.A.",
+ "ref": "2026-09-30",
+ "f": "12m",
+ "ind": {
+  "fin": false,
+  "roe": 0.3131,
+  "ml": 0.1643,
+  "anosLucro": 5,
+  "nAnos": 5,
+  "cRec": 0.1471,
+  "cLuc": 0.1667,
+  "pl": 30.3304,
+  "pvp": 9.4968,
+  "me": 0.1936,
+  "dle": -0.2887,
+  "dlpl": -0.121,
+  "lc": 1.5392,
+  "fcoL": 0.9096,
+  "fcl": 6085319000,
+  "evEbit": 25.4086,
+  "ebitda": 8952604000
+ },
+ "mc": 202919129280,
+ "h": {
+  "a": [
+   2020,
+   2021,
+   2022,
+   2023,
+   2024,
+   2025
+  ],
+  "r": [
+   17469557000,
+   23563338000,
+   29904722000,
+   32503601000,
+   37986941000,
+   40804110000
+  ],
+  "l": [
+   2395957000,
+   3657480000,
+   4272872000,
+   5867615000,
+   6318763000,
+   6775958000
+  ],
+  "dl": [
+   -2798354000,
+   -1428020000,
+   -1523136000,
+   -4246163000,
+   -4400839000,
+   -2689043000
+  ],
+  "eb": [
+   3267683000,
+   4678521000,
+   5617144000,
+   7090167000,
+   8503013000,
+   9000037000
+  ]
+ }
+}
+--- SONDA fundamentos ITUB4 ---
+{
+ "n": "ITAU UNIBANCO HOLDING S.A.",
+ "ref": "2026-06-30",
+ "f": "12m",
+ "ind": {
+  "fin": true,
+  "roe": 0.2103,
+  "ml": 0.1242,
+  "anosLucro": 5,
+  "nAnos": 5,
+  "cRec": 0.186,
+  "cLuc": 0.1274,
+  "pl": 9.3912,
+  "pvp": 1.9745
+ },
+ "mc": 450240948064,
+ "h": {
+  "a": [
+   2020,
+   2021,
+   2022,
+   2023,
+   2024,
+   2025
+  ],
+  "r": [
+   173757000000,
+   195679000000,
+   259026000000,
+   313221000000,
+   335328000000,
+   387118000000
+  ],
+  "l": [
+   15064000000,
+   28384000000,
+   30242000000,
+   33877000000,
+   42128000000,
+   45849000000
+  ],
+  "dl": [
+   79505000000,
+   63204000000,
+   76861000000,
+   0,
+   0,
+   0
+  ],
+  "eb": [
+   17268000000,
+   53005000000,
+   48854000000,
+   53049000000,
+   73991000000,
+   96730000000
+  ]
+ }
+}
+--- SONDA fundamentos BBAS3 ---
+{
+ "n": "BCO BRASIL S.A.",
+ "ref": "2026-06-30",
+ "f": "12m",
+ "ind": {
+  "fin": true,
+  "roe": 0.0806,
+  "ml": 0.0465,
+  "anosLucro": 5,
+  "nAnos": 5,
+  "cRec": 0.262,
+  "cLuc": -0.0396,
+  "pl": 6.1222,
+  "pvp": 0.4937
+ },
+ "mc": 94188902284,
+ "h": {
+  "a": [
+   2020,
+   2021,
+   2022,
+   2023,
+   2024,
+   2025
+  ],
+  "r": [
+   98659704000,
+   125947217000,
+   236549051000,
+   265438605000,
+   273505274000,
+   319462104000
+  ],
+  "l": [
+   13292883000,
+   19722871000,
+   30001179000,
+   33165591000,
+   29171564000,
+   16781938000
+  ],
+  "dl": [
+   425794757000,
+   616774860000,
+   684436768000,
+   756943988000,
+   790543448000,
+   838301924000
+  ],
+  "eb": [
+   11577003000,
+   23989791000,
+   38453561000,
+   41147191000,
+   27710589000,
+   5613636000
+  ]
+ }
+}
+--- SONDA fundamentos VALE3 ---
+{
+ "n": "VALE S.A.",
+ "ref": "2026-09-30",
+ "f": "12m",
+ "ind": {
+  "fin": false,
+  "roe": 0.0028,
+  "ml": 0.0026,
+  "anosLucro": 5,
+  "nAnos": 5,
+  "cRec": -0.0764,
+  "cLuc": -0.4414,
+  "pl": 444.5734,
+  "pvp": 1.2377,
+  "me": 0.1168,
+  "dle": 1.5546,
+  "dlpl": 0.3397,
+  "lc": 1.1026,
+  "fcoL": null,
+  "fcl": 49852000000,
+  "evEbit": 12.4998,
+  "ebitda": 43646000000
+ },
+ "mc": 247182817251,
+ "h": {
+  "a": [
+   2020,
+   2021,
+   2022,
+   2023,
+   2024,
+   2025
+  ],
+  "r": [
+   206098000000,
+   293524000000,
+   226508000000,
+   208066000000,
+   206005000000,
+   213595000000
+  ],
+  "l": [
+   24903000000,
+   121343000000,
+   96337000000,
+   40554000000,
+   30431000000,
+   11811000000
+  ],
+  "dl": [
+   3997894000,
+   10472000000,
+   41299000000,
+   49680000000,
+   65010000000,
+   61828000000
+  ],
+  "eb": [
+   79154000000,
+   157714000000,
+   106712000000,
+   80572000000,
+   71984000000,
+   49275000000
+  ]
+ }
+}
+--- SONDA fundamentos TAEE11 ---
+{
+ "n": "TRANSMISSORA ALIANÇA DE ENERGIA ELÉTRICA S.A.",
+ "ref": "2026-06-30",
+ "f": "12m",
+ "ind": {
+  "fin": false,
+  "roe": 0.2027,
+  "ml": 0.3648,
+  "anosLucro": 5,
+  "nAnos": 5,
+  "cRec": 0.0743,
+  "cLuc": -0.0809,
+  "pl": 8.3381,
+  "pvp": 1.6899,
+  "me": 0.6489,
+  "dle": 3.4782,
+  "dlpl": 1.2903,
+  "lc": 3.4791,
+  "fcoL": 1.0407,
+  "fcl": 1702363000,
+  "evEbit": 8.2658,
+  "ebitda": 2994014000
+ },
+ "mc": 13638711451,
+ "h": {
+  "a": [
+   2020,
+   2021,
+   2022,
+   2023,
+   2024,
+   2025
+  ],
+  "r": [
+   3561286000,
+   3472049000,
+   2616517000,
+   3360901000,
+   3718138000,
+   4624113000
+  ],
+  "l": [
+   2262927000,
+   2213714000,
+   1449215000,
+   1367720000,
+   1693915000,
+   1579863000
+  ],
+  "dl": [
+   5356755000,
+   6420062000,
+   7073014000,
+   8396519000,
+   9048889000,
+   10232846000
+  ],
+  "eb": [
+   3209985000,
+   3457905000,
+   2466266000,
+   2351790000,
+   2888083000,
+   2799541000
+  ]
+ }
+}
+--- SONDA setores ---
+{
+ "Miscellaneous": 764,
+ "Retail Trade": 83,
+ "Process Industries": 77,
+ "Finance": 319,
+ "Electronic Technology": 74,
+ "Utilities": 133,
+ "Health Technology": 79,
+ "Consumer Durables": 48,
+ "Technology Services": 126,
+ "Transportation": 56,
+ "Producer Manufacturing": 105,
+ "Energy Minerals": 29,
+ "Consumer Services": 59,
+ "Distribution Services": 27,
+ "Health Services": 31,
+ "Consumer Non-Durables": 67,
+ "Commercial Services": 53,
+ "Non-Energy Minerals": 60,
+ "Communications": 26,
+ "Industrial Services": 37
+}
+--- SONDA financeiras ---
+BBAS3 PDTC3 BRAP3 BRAP4 FIEI3 LOGG3 BMEB3 BMEB4 BBSE3 CXSE3 BEES3 BEES4 ABCB4 IRBR3 BBDC3 BBDC4 ITUB3 ITUB4 ESTR4 BMGB4 ITSA3 ITSA4 PINE3 PINE4 HBTS5 SANB11 SANB3 SANB4 BRSR3 BRSR6 BRSR5 BAZA3 BNBR3 BGIP3 BGIP4 RPAD6 RPAD5 BMIN4 BMKS3 B1003 CCTY3
+--- SONDA receita 3.01 das financeiras ---
+[
+ "BBAS3: Receitas de Intermediação Financeira",
+ "ARML3: Receita de Venda de Bens e/ou Serviços",
+ "GFSA3: Receita de Venda de Bens e/ou Serviços",
+ "PEAB3: Receita de Venda de Bens e/ou Serviços",
+ "PSSA3: Receita de Venda de Bens e/ou Serviços",
+ "PDGR3: Receita de Venda de Bens e/ou Serviços",
+ "BRAP3: Receita de Venda de Bens e/ou Serviços",
+ "BRAP4: Receita de Venda de Bens e/ou Serviços",
+ "ALOS3: Receita de Venda de Bens e/ou Serviços",
+ "MULT3: Receita de Venda de Bens e/ou Serviços",
+ "FIEI3: Receita de Venda de Bens e/ou Serviços",
+ "MTRE3: Receita de Venda de Bens e/ou Serviços",
+ "TCSA3: Receita de Venda de Bens e/ou Serviços",
+ "JHSF3: Receita de Venda de Bens e/ou Serviços",
+ "EZTC3: Receita de Venda de Bens e/ou Serviços",
+ "NEXP3: Receita de Venda de Bens e/ou Serviços",
+ "GSHP3: Receita de Venda de Bens e/ou Serviços",
+ "CURY3: Receita de Venda de Bens e/ou Serviços",
+ "SYNE3: Receita de Venda de Bens e/ou Serviços",
+ "B3SA3: Receita de Venda de Bens e/ou Serviços",
+ "BRBI11: Receita de Venda de Bens e/ou Serviços",
+ "MDNE3: Receita de Venda de Bens e/ou Serviços",
+ "HBRE3: Receita de Venda de Bens e/ou Serviços",
+ "DIRR3: Receita de Venda de Bens e/ou Serviços",
+ "RENT3: Receita de Venda de Bens e/ou Serviços",
+ "RENT4: Receita de Venda de Bens e/ou Serviços",
+ "AVLL3: Receita de Venda de Bens e/ou Serviços",
+ "BMEB3: Receitas de Intermediação Financeira",
+ "BMEB4: Receitas de Intermediação Financeira",
+ "BBSE3: Receitas das Atividades Seguradoras/Resseguradoras",
+ "MOVI3: Receita de Venda de Bens e/ou Serviços",
+ "CXSE3: Receita de Venda de Bens e/ou Serviços",
+ "VAMO3: Receita de Venda de Bens e/ou Serviços",
+ "PLPL3: Receita de Venda de Bens e/ou Serviços",
+ "LAVV3: Receita de Venda de Bens e/ou Serviços",
+ "MILS3: Receita de Venda de Bens e/ou Serviços",
+ "BEES3: Receitas de Intermediação Financeira",
+ "BEES4: Receitas de Intermediação Financeira",
+ "ABCB4: Receitas de Intermediação Financeira",
+ "SCAR3: Receita de Venda de Bens e/ou Serviços",
+ "IRBR3: Receitas das Atividades Seguradoras/Resseguradoras",
+ "LAND3: Receita de Venda de Bens e/ou Serviços",
+ "WIZC3: Receita de Venda de Bens e/ou Serviços",
+ "EVEN3: Receita de Venda de Bens e/ou Serviços",
+ "IGTI3: Receita de Venda de Bens e/ou Serviços",
+ "IGTI4: Receita de Venda de Bens e/ou Serviços",
+ "IGTI11: Receita de Venda de Bens e/ou Serviços",
+ "BBDC3: Receitas de Intermediação Financeira",
+ "BBDC4: Receitas de Intermediação Financeira",
+ "ITUB3: Receitas da Intermediação Fin
+[02:57:33] Fundamentos: 278 empresas, 344 códigos
+[02:57:34] resumo: CDI último ["2026-10-30",0.050788], IPCA último ["2026-09",0.82], dólar 5.4935, USDT 5.5102, ITSA4 12.42, MXRF11 8.47, Selic 2031 20101.76, anúncios {"fiiB3":4193,"acao":1000,"fundosnet":192}
+[02:57:34] MXRF11: [{"t":"MXRF11","tipo":"Rendimento","com":"2026-08-31","pag":"2026-09-15","v":0.1,"o":"fiiB3"},{"t":"MXRF11","tipo":"Rendimento","com":"2026-09-30","pag":"2026-10-15","v":0.1,"o":"fiiB3"},{"t":"MXRF11","tipo":"Rendimento","com":"2026-10-30","pag":"2026-11-16","v":0.095,"o":"fiiB3"}] · ITSA4: [{"t":"ITSA4","tipo":"JCP","com":"2026-06-18","pag":"2026-08-28","v":0.138,"o":"acao"},{"t":"ITSA4","tipo":"JCP","com":"2026-03-19","pag":"2026-08-28","v":0.116,"o":"acao"},{"t":"ITSA4","tipo":"JCP","com":"2026-08-31","pag":"2026-10-01","v":0.0242425,"o":"acao"}]
+[02:57:34] futuros: 461, tamanhos KB: {"atualizado":0,"precos":33,"tesouro":2,"cripto":0,"cdi":22,"ipca":1,"anuncios":492,"usdtbrl":0,"dolar":0,"fnetLidos":6}
+[02:57:34] gravado: saida/dados (553 KB)

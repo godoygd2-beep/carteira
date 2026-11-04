@@ -160,8 +160,11 @@ function montarEmpresa(D, I) {
 /* Indicadores a partir dos números */
 const div = (a, b) => (a == null || b == null || b === 0) ? null : a / b;
 const r4 = v => v == null || !isFinite(v) ? null : +v.toFixed(4);
-function indicadores(e, mcap) {
-  const t = e.ttm, fin = !!t.fin;
+function indicadores(e, mcap, setorFin) {
+  const t = e.ttm;
+  // bancos, seguradoras e holdings: margem, dívida e caixa não se medem como numa empresa comum
+  const holding = t.receita == null || t.receita <= 0 || (t.lucro > 0 && t.lucro > 0.8 * t.receita);
+  const fin = !!t.fin || !!setorFin || holding;
   const ebitda = t.ebit != null ? t.ebit + (t.dep || 0) : null;
   const fcl = t.fco != null ? t.fco + (t.capex || 0) : null;
   const anosLucro = e.anos.slice(-5).filter(a => a.lucro > 0).length;
@@ -174,7 +177,7 @@ function indicadores(e, mcap) {
   };
   if (!fin) Object.assign(I, {
     me: div(t.ebit, t.receita), dle: ebitda > 0 ? div(t.divLiq, ebitda) : null, dlpl: div(t.divLiq, t.pl), lc: div(t.ac, t.pc),
-    fcoL: t.lucro > 0 ? div(t.fco, t.lucro) : null, fcl, evEbit: mcap && t.ebit > 0 ? div(mcap + (t.divLiq || 0), t.ebit) : null, ebitda
+    fcoL: t.lucro > 0 && t.receita > 0 && t.lucro / t.receita >= 0.03 ? div(t.fco, t.lucro) : null, fcl, evEbit: mcap && t.ebit > 0 ? div(mcap + (t.divLiq || 0), t.ebit) : null, ebitda
   });
   for (const k of Object.keys(I)) if (typeof I[k] === 'number') I[k] = r4(I[k]);
   return I;
@@ -234,7 +237,7 @@ export async function fundamentos(ativos, mk, opts) {
     const e = montarEmpresa(dfp.D[cd], I[cd]); if (!e) continue;
     // valor de mercado: soma das classes (preço × ações) não está disponível; usa o maior valor de mercado informado entre os códigos
     const mcap = Math.max(0, ...ts.map(t => (mk.mcap || {})[t] || 0)) || null;
-    const ind = indicadores(e, mcap);
+    const ind = indicadores(e, mcap, ts.some(t => (mk.setor || {})[t] === 'Finance'));
     out.empresas[cd] = {
       n: info.nome, ref: e.ref, f: e.fonte, ind, mc: mcap,
       h: { a: e.anos.map(x => x.ano), r: e.anos.map(x => x.receita), l: e.anos.map(x => x.lucro), dl: e.anos.map(x => x.divLiq ?? null), eb: e.anos.map(x => x.ebit != null ? x.ebit + (x.dep || 0) : null) }
@@ -243,6 +246,7 @@ export async function fundamentos(ativos, mk, opts) {
     n++;
   }
   if (sonda) for (const t of ['PETR4', 'WEGE3', 'ITUB4', 'BBAS3', 'VALE3', 'TAEE11']) { const cd = out.tickers[t]; sonda('fundamentos ' + t, cd ? out.empresas[cd] : 'sem dados'); }
+  if (sonda) { const cont = {}; for (const v of Object.values(mk.setor || {})) cont[v] = (cont[v] || 0) + 1; sonda('setores', cont); sonda('financeiras', Object.entries(out.tickers).filter(([t, cd]) => out.empresas[cd].ind.fin).map(([t]) => t).join(' ')); }
   log('Fundamentos: ' + n + ' empresas, ' + Object.keys(out.tickers).length + ' códigos');
   return out;
 }

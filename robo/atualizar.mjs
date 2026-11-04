@@ -63,7 +63,7 @@ async function anterior() {
 
 /* ---------- B3: preços e lista (brapi) ---------- */
 async function acoes(mk, ativos) {
-  const precos = {}, acao = [], fii = []; mk.mcap = {};
+  const precos = {}, acao = [], fii = []; mk.mcap = {}; mk.setor = {};
   let page = 1, total = 0;
   for (;;) {
     const j = await get('https://brapi.dev/api/v2/tickers?limit=100&page=' + page + '&sortBy=symbol&sortOrder=asc');
@@ -73,6 +73,7 @@ async function acoes(mk, ativos) {
       const p = it.quote && it.quote.lastPrice;
       if (p > 0) precos[s] = +(+p).toFixed(4);
       if (it.quote && it.quote.marketCap > 0) mk.mcap[s] = it.quote.marketCap;
+      if (it.sector) mk.setor[s] = it.sector;
       if (it.isActive === false) continue;
       const nome = (it.name || it.longName || '').trim();
       const sub = it.subType || '', tipo = it.assetType || '';
@@ -356,7 +357,7 @@ try {
   }
   if (F) { await mkdir(OUT, { recursive: true }); await writeFile(OUT + '/fundamentos.json', JSON.stringify(F)); mk.atualizado.fundamentos = F.atualizado; }
 } catch (e) { erros.push('fundamentos'); log('ERRO em fundamentos: ' + e.message); }
-delete mk.mcap;
+delete mk.mcap; delete mk.setor;
 mk.atualizado.robo = agora.toISOString();
 // mesmo ativo, tipo e data de pagamento vindo do FundosNET e da B3: fica só o da B3
 { const b3 = new Set((mk.anuncios || []).filter(a => a.o).map(a => a.t + '|' + a.tipo + '|' + a.pag));

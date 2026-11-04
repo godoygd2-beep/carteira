@@ -4,6 +4,7 @@ import { nf2, nf0, nf4, nfq, r2, num, esc, uid, semAcento, daysBetween, parse, i
 import { S, CLS, ORDER, TIPOS, TIPO_NOME, byDate, irRate, opsOf, ativosOf, cdbPadrao, opTotalBRL, opTotalOrig, opTaxBRL, qtdEm, posRV, posCDB,
   cdbValor, pos, carteira, retorno, dy12, yoc, fonteDe, linkedOp, fonteTxt, aReceber, proventosPendentes, dolarCripto, relatorioIR, codigoIR } from './calc.js';
 import { CRIPTO, RESERVA } from './listas.js';
+import { calcularResultado } from './resultado.js';
 
 let store = null, root = null, versao = '';
 const app = { fase: 'carregando', user: null, settings: {}, demo: false, lista: null, erro: null };
@@ -61,6 +62,7 @@ export function iniciarUI(el, st, opts) {
     if (e.target.closest('#login')) { entrar(); return; }
     const ed = e.target.closest('[data-edit]'); if (ed) { editar(ed.dataset.edit); return; }
     const fi = e.target.closest('[data-ficha]'); if (fi) { ficha(fi.dataset.ficha); return; }
+    const rp = e.target.closest('[data-rp]'); if (rp) { resPeriodo = rp.dataset.rp; render(); return; }
     const ac = e.target.closest('[data-acls]'); if (ac) { analiseCls = ac.dataset.acls; render(); return; }
     if (e.target.closest('#a-crit')) { criterios(); return; }
     if (e.target.closest('#a-mais')) { analiseLimite += 30; render(); return; }
@@ -185,6 +187,7 @@ function render() {
   if (!logado) { view.innerHTML = '<div class="card empty">Abrindo sua carteira…</div>'; return; }
   if (tab === 'analise') { renderAnalise(view); return; }
   view.innerHTML = tab === 'carteira' ? vCarteira() : tab === 'proventos' ? vProventos() : vLancamentos();
+  if (tab === 'carteira') ativarResultado();
 }
 function subtitulo() {
   const t = (S.mk.atualizado || {}).b3;
@@ -247,6 +250,9 @@ function vCarteira() {
     h += '<div><span class="dot" style="background:' + CLS[c].cor + '"></span><span>' + CLS[c].nome + '</span><span class="num muted">' + brl(v) + '</span><b class="num" style="min-width:52px;text-align:right">' + pct(v / k.total, false) + '</b></div>';
   }
   h += '</div>' + (k.classes.cripto.items.length ? '<p class="note" style="margin-bottom:0">Cripto convertida pelo USDT em reais de agora (R$ ' + nf2.format(dolarCripto()) + ').</p>' : '') + '</div></section>';
+  h += '<section class="sec" id="res-sec"><div class="sec-h"><h2>Resultado da carteira</h2></div>' +
+    '<div class="seg seg-sm" style="margin-bottom:10px">' + [['tudo', 'Desde o início'], ['12m', '12 meses'], ['ano', 'Este ano']].map(([k2, n]) => '<button type="button" data-rp="' + k2 + '" aria-pressed="' + (k2 === resPeriodo) + '">' + n + '</button>').join('') + '</div>' +
+    '<div id="res-box"><div class="card empty">Calculando…</div></div></section>';
   return h;
 }
 
@@ -718,6 +724,54 @@ let tt;
 export function toast(m) { const el = root.querySelector('#toast'); el.textContent = m; el.hidden = false; clearTimeout(tt); tt = setTimeout(() => { el.hidden = true; }, 2600); }
 
 /* para os testes */
+
+/* ---------- Resultado da carteira (fim da aba Carteira) ---------- */
+let resPeriodo = 'tudo', resGraf = null;
+const RES = { hist: {}, carregando: null, cache: { k: null, r: null } };
+async function histDosAtivos() {
+  const faltam = [...new Set(S.ops.filter(o => o.cls === 'acao' || o.cls === 'fii').map(o => o.ativo))].filter(t => !(t in RES.hist));
+  if (!faltam.length) return false;
+  await Promise.all(faltam.map(t => fetch('dados/hist/' + t + '.json').then(r => r.ok ? r.json() : null).catch(() => null).then(j => { RES.hist[t] = j; })));
+  return true;
+}
+function ativarResultado() {
+  const box = root.querySelector('#res-box'); if (!box) return;
+  if (!RES.carregando) RES.carregando = histDosAtivos().then(novo => { RES.carregando = null; if (novo && tab === 'carteira') render(); });
+  const k = [resPeriodo, S.ops.length, S.ops.reduce((m, o) => Math.max(m, o.ts || 0), 0), (S.mk.atualizado || {}).b3, (S.mk.cdi || []).length, Object.keys(RES.hist).length, hide].join('|');
+  if (RES.cache.k !== k) { let r = null; try { r = calcularResultado(resPeriodo, RES.hist); } catch (e) { console.error(e); } RES.cache = { k, r }; }
+  const R = RES.cache.r;
+  if (!R) { box.innerHTML = '<div class="card empty">Lance suas compras e aportes para ver o resultado.</div>'; return; }
+  const l = (k2, v, cl, b) => '<div class="l num' + (b ? ' tot' : '') + '"><span>' + k2 + '</span><span class="' + (cl || '') + '">' + v + '</span></div>';
+  let h = '<div class="card"><div class="leg3"><span><i class="ln-c"></i>Sua carteira</span><span><i class="ln-d"></i>Se fosse no CDI</span>' + (R.temIpca ? '<span><i class="ln-i"></i>Só a inflação</span>' : '') + '</div>' +
+    '<div id="res-graf" class="chart" style="height:220px"></div>' +
+    '<p class="note" style="margin:6px 0 0">As três linhas usam o mesmo dinheiro que você colocou e tirou, nas mesmas datas.</p></div>';
+  h += '<div class="ret">';
+  if (R.partes) h += l('Valorização das cotas', brl(R.partes.valoriz, true), cls(R.partes.valoriz)) + l('Proventos recebidos', brl(R.partes.prov, true), cls(R.partes.prov)) +
+    l('Renda fixa (CDB e Tesouro, líquido)', brl(R.partes.fixa, true), cls(R.partes.fixa)) + (Math.abs(R.partes.vendas) > 0.004 ? l('Lucro nas vendas', brl(R.partes.vendas, true), cls(R.partes.vendas)) : '');
+  else h += l('Valor no início do período', brl(R.V0)) + l('Você colocou', brl(R.A)) + l('Você tirou (vendas, resgates, proventos)', brl(R.W));
+  h += l('Resultado' + (R.partes ? ' total' : ' no período'), brl(R.res, true) + ' · ' + pct(R.resPct), cls(R.res), true);
+  if (R.temIpca) h += '<div class="real"><span class="muted" style="font-size:14px">Descontando a inflação</span><div class="num" style="font-weight:700;font-size:16px;margin-top:2px"><span class="' + cls(R.real) + '">' + brl(R.real, true) + ' · ' + pct(R.realPct) + '</span></div></div>';
+  h += '<div class="real"><span class="muted" style="font-size:14px">Comparado ao CDI</span><div class="num" style="font-weight:700;font-size:16px;margin-top:2px"><span class="' + cls(R.vsCdi) + '">' + brl(Math.abs(R.vsCdi)) + (R.vsCdi >= 0 ? ' acima' : ' abaixo') + '</span></div>' +
+    '<p class="note" style="margin:4px 0 0">No CDI você teria ' + brl(R.cdiFim) + ' (100% do CDI, antes do IR).</p></div></div>';
+  h += '<p class="note">Ações e FIIs pelo fechamento de cada dia, CDB pelo CDI de cada dia. Tesouro e cripto não têm histórico no app: o ganho até hoje é distribuído em linha reta no tempo. A porcentagem é sobre o que você colocou' + (R.partes ? '' : ' mais o valor no início do período') + '.</p>';
+  box.innerHTML = h;
+  desenharResultado(R);
+}
+async function desenharResultado(R) {
+  let L; try { L = await carregarGrafico(); } catch (e) { const g = root.querySelector('#res-graf'); if (g) g.outerHTML = '<p class="note">Não deu para carregar o gráfico.</p>'; return; }
+  const el = root.querySelector('#res-graf'); if (!el) return;
+  if (resGraf) { try { resGraf.remove(); } catch (e) { /* ignora */ } resGraf = null; }
+  const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue(n).trim();
+  const c = L.createChart(el, { width: el.clientWidth, height: 220, layout: { background: { type: 'solid', color: v('--surface') }, textColor: v('--muted'), fontFamily: 'Figtree, system-ui, sans-serif', fontSize: 11 },
+    grid: { vertLines: { visible: false }, horzLines: { color: v('--line') } }, rightPriceScale: { borderVisible: false }, timeScale: { borderVisible: false, fixLeftEdge: true, fixRightEdge: true },
+    crosshair: { mode: 1 }, localization: { locale: 'pt-BR', priceFormatter: p => hide ? HID : 'R$ ' + nf0.format(p) }, handleScroll: false, handleScale: false });
+  const linha = (cor, larg, estilo, campo) => { const s = c.addLineSeries({ color: cor, lineWidth: larg, lineStyle: estilo, priceLineVisible: false, lastValueVisible: false }); s.setData(R.serie.map(p => ({ time: p.t, value: +p[campo].toFixed(2) }))); };
+  if (R.temIpca) linha(v('--muted'), 1, 2, 'inf');
+  linha(v('--c-cdb'), 2, 0, 'cdi');
+  linha(v('--accent'), 3, 0, 'carteira');
+  c.timeScale().fitContent();
+  resGraf = c;
+}
 
 /* ---------- Aba Análise ---------- */
 let analiseCls = 'fii', analiseLimite = 30, analiseQ = '';
